@@ -1,5 +1,4 @@
 <script setup lang="ts">
-
 import { ref, nextTick, onMounted } from 'vue';
 import SearchBar from './components/SearchBar.vue';
 import LinkColumns from './components/LinkColumns.vue';
@@ -13,6 +12,7 @@ const clerkPubKey = import.meta.env.VITE_CLERK_PUBLISHABLE_KEY;
 const clerk = new Clerk(clerkPubKey);
 
 const isLoggedIn = ref(false);
+const showSignIn = ref(false);
 
 const tools: iLinkCard[] = [
   { icon: 'mdi-gmail', title: 'Gmail', description: 'Email service', link: 'https://mail.google.com' },
@@ -31,7 +31,6 @@ const news: iLinkCard[] = [
 
 const showHelpDialog = ref(false);
 
-// const keyboardShortcuts = computed(() => {
 const toolShortcuts = tools.map((tool, index) => ({
   shortcut: `Ctrl+${index + 1}`,
   description: `Open ${tool.title}`
@@ -42,30 +41,29 @@ const docShortcuts = docs.map((doc, index) => ({
   description: `Open ${doc.title}`
 }));
 
-const news_shortcut = "";
-
-async function handleLogin() {
-
+function handleShowSignIn() {
+  showSignIn.value = true;
+  nextTick(() => {
+    const signInDiv = document.getElementById('sign-in');
+    if (signInDiv) {
+      clerk.mountSignIn(signInDiv as HTMLDivElement);
+    }
+  });
 }
 
 onMounted(async () => {
-    await clerk.load({
-      // Set load options here
-    });
-    isLoggedIn.value = !!clerk.user;
+  await clerk.load();
+  isLoggedIn.value = !!clerk.user;
+
+  if (isLoggedIn.value) {
     nextTick(() => {
-      if (isLoggedIn.value) {
-        const userButtonDiv = document.getElementById('user-button');
-        if (!userButtonDiv) return;
+      const userButtonDiv = document.getElementById('user-button');
+      if (userButtonDiv) {
         clerk.mountUserButton(userButtonDiv as HTMLDivElement);
-      } else {
-        const signInDiv = document.getElementById('sign-in');
-        if (!signInDiv) return;
-        clerk.mountSignIn(signInDiv as HTMLDivElement);
       }
     });
+  }
 });
-
 </script>
 
 <template>
@@ -83,9 +81,7 @@ onMounted(async () => {
           <v-icon icon="mdi-rocket" size="24" />
           Better New Tab
         </h1>
-        <v-btn icon="mdi-help" @click="showHelpDialog = true">
-        </v-btn>
-
+        <v-btn icon="mdi-help" @click="showHelpDialog = true"></v-btn>
       </div>
       <SearchBar :tools="tools" :docs="docs" />
       <LinkColumns :tools="tools" :docs="docs" />
@@ -94,9 +90,7 @@ onMounted(async () => {
           <v-card-title class="headline">Help</v-card-title>
           <v-card-text>
             <h3 class="text-xl">Search Bar Controls</h3>
-            <p>While in the search bar, type in a Jira Ticket number for relevant links, then use arrow keys or your
-              mouse
-              to navigate</p>
+            <p>While in the search bar, type in a Jira Ticket number for relevant links, then use arrow keys or your mouse to navigate</p>
             <br />
             <h3 class="text-xl">Keyboard Shortcuts</h3>
             <br />
@@ -105,16 +99,14 @@ onMounted(async () => {
               <v-col>
                 <ul>
                   <li v-for="shortcut in toolShortcuts" :key="shortcut.shortcut">
-                    <strong>{{ shortcut.shortcut }}</strong>:
-                    {{ shortcut.description }}
+                    <strong>{{ shortcut.shortcut }}</strong>: {{ shortcut.description }}
                   </li>
                 </ul>
               </v-col>
               <v-col>
                 <ul>
                   <li v-for="shortcut in docShortcuts" :key="shortcut.shortcut">
-                    <strong>{{ shortcut.shortcut }}</strong>:
-                    {{ shortcut.description }}
+                    <strong>{{ shortcut.shortcut }}</strong>: {{ shortcut.description }}
                   </li>
                 </ul>
               </v-col>
@@ -131,14 +123,18 @@ onMounted(async () => {
       <v-container class="bg-primary text-center">
         <v-row align="center" justify="end" class="text-end">
           <v-col>
-            <v-btn id="sign-in">Login</v-btn>
+            <v-btn @click="handleShowSignIn" color="primary">Login</v-btn>
           </v-col>
         </v-row>
       </v-container>
       <LandingPage />
+      <v-dialog v-model="showSignIn" max-width="600px">
+        <div class="m-auto">
+          <div id="sign-in"></div>
+        </div>
+        </v-dialog>
     </div>
   </v-theme-provider>
-
 </template>
 
 <style scoped>
@@ -215,7 +211,6 @@ nav a:first-of-type {
     text-align: left;
     margin-left: -1rem;
     font-size: 1rem;
-
     padding: 1rem 0;
     margin-top: 1rem;
   }
