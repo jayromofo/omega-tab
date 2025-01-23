@@ -68,7 +68,7 @@ onMounted(async () => {
 
 <template>
   <v-theme-provider theme="dark">
-    <div v-if="isLoggedIn">
+    <div v-if="isLoggedIn"  class="mt-16">
       <v-container class="bg-primary text-center">
         <v-row align="center" justify="end" class="text-end">
           <v-col>
