@@ -6,14 +6,6 @@ export type Json =
 	| { [key: string]: Json | undefined }
 	| Json[];
 
-export type Plan = {
-	created_at: string | null;
-	features: Json;
-	id: string;
-	max_pins: number;
-	name: string;
-} | null;
-
 export type Database = {
 	graphql_public: {
 		Tables: {
@@ -223,7 +215,32 @@ export type Database = {
 						referencedRelation: "subscriptions";
 						referencedColumns: ["entity_id", "entity_type"];
 					},
+					{
+						foreignKeyName: "user_memberships_user_id_fkey";
+						columns: ["user_id"];
+						isOneToOne: false;
+						referencedRelation: "users";
+						referencedColumns: ["id"];
+					},
 				];
+			};
+			users: {
+				Row: {
+					created_at: string;
+					email: string;
+					id: string;
+				};
+				Insert: {
+					created_at?: string;
+					email: string;
+					id: string;
+				};
+				Update: {
+					created_at?: string;
+					email?: string;
+					id?: string;
+				};
+				Relationships: [];
 			};
 		};
 		Views: {

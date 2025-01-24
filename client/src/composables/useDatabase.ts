@@ -99,48 +99,146 @@ export const linkUtils = {
 };
 
 export const teamUtils = {
-	async getUserTeams(userId: string) {
-		const { data, error } = await supabase
-			.from("user_memberships")
-			.select(`
-        entity_id,
+  async getUserTeams(userId: string) {
+    const { data, error } = await supabase
+      .from('user_memberships')
+      .select('entity_id, role')
+      .eq('user_id', userId)
+      .eq('entity_type', 'team');
+
+    if (error) throw error;
+
+    const teamIds = data.map(m => m.entity_id);
+    const { data: teams, error: teamsError } = await supabase
+      .from('teams')
+      .select('id, name, organization_id')
+      .in('id', teamIds);
+
+    if (teamsError) throw teamsError;
+
+    return data.map(membership => ({
+      entity_id: membership.entity_id,
+      role: membership.role,
+      teams: teams.find(t => t.id === membership.entity_id)
+    }));
+  },
+
+  async getTeamMembers(teamId: string) {
+    const { data, error } = await supabase
+      .from('user_memberships')
+      .select(`
+        user_id,
         role,
-        teams (
-          id,
-          name,
-          organization_id
+        users (
+          email
         )
       `)
-			.eq("user_id", userId)
-			.eq("entity_type", "team");
+      .eq('entity_id', teamId)
+      .eq('entity_type', 'team');
 
-		if (error) throw error;
-		return data;
-	},
+    if (error) throw error;
+    return data.map(d => ({
+      user_id: d.user_id,
+      email: d.users?.email || '',
+      role: d.role
+    }));
+  },
 
-	async createTeam(team: Omit<Team, "id" | "created_at">, userId: string) {
-		const { data: teamData, error: teamError } = await supabase
-			.from("teams")
-			.insert(team)
-			.select()
+  async createTeam(team: Omit<Team, 'id' | 'created_at'>, userId: string) {
+    const { data: teamData, error: teamError } = await supabase
+      .from('teams')
+      .insert(team)
+      .select()
+      .single();
+
+    if (teamError) throw teamError;
+
+    const membership = {
+      user_id: userId,
+      entity_id: teamData.id,
+      entity_type: 'team',
+      role: 'owner'
+    };
+
+    const { error: membershipError } = await supabase
+      .from('user_memberships')
+      .insert(membership);
+
+    if (membershipError) throw membershipError;
+
+    return teamData;
+  },
+
+  async updateTeam(teamId: string, updates: Partial<Omit<Team, 'id' | 'created_at'>>) {
+    const { data, error } = await supabase
+      .from('teams')
+      .update(updates)
+      .eq('id', teamId)
+      .select()
+      .single();
+
+    if (error) throw error;
+    return data;
+  },
+
+  async deleteTeam(teamId: string) {
+    const { error } = await supabase
+      .from('teams')
+      .delete()
+      .eq('id', teamId);
+
+    if (error) throw error;
+  }
+};
+
+export const membershipUtils = {
+	async addMember(
+		email: string,
+		entityId: string,
+		entityType: "team" | "organization",
+		role: string,
+	) {
+		// First get user ID from email
+		const { data: userData, error: userError } = await supabase
+			.from("user_memberships")
+			.select("user_id")
+			.eq("email", email)
 			.single();
 
-		if (teamError) throw teamError;
+		if (userError) throw userError;
 
-		const membership: Omit<UserMembership, "created_at"> = {
-			user_id: userId,
-			entity_id: teamData.id,
-			entity_type: "team",
-			role: "owner",
+		const membership = {
+			user_id: userData.user_id,
+			entity_id: entityId,
+			entity_type: entityType,
+			role,
 		};
 
-		const { error: membershipError } = await supabase
+		const { error } = await supabase
 			.from("user_memberships")
 			.insert(membership);
 
-		if (membershipError) throw membershipError;
+		if (error) throw error;
+	},
 
-		return teamData;
+	async removeMember(userId: string, entityId: string) {
+		const { error } = await supabase
+			.from("user_memberships")
+			.delete()
+			.eq("user_id", userId)
+			.eq("entity_id", entityId);
+
+		if (error) throw error;
+	},
+
+	async updateMemberRole(userId: string, entityId: string, role: string) {
+		const { error } = await supabase
+			.from("user_memberships")
+			.update({ role })
+			.eq("user_id", userId)
+			.eq("entity_id", entityId);
+
+		if (error) throw error;
 	},
 };
 
@@ -189,48 +287,6 @@ export const orgUtils = {
 		if (membershipError) throw membershipError;
 
 		return orgData;
-	},
-};
-
-export const membershipUtils = {
-	async addMember(
-		userId: string,
-		entityId: string,
-		entityType: "team" | "organization",
-		role: string,
-	) {
-		const membership: Omit<UserMembership, "created_at"> = {
-			user_id: userId,
-			entity_id: entityId,
-			entity_type: entityType,
-			role,
-		};
-
-		const { error } = await supabase
-			.from("user_memberships")
-			.insert(membership);
-
-		if (error) throw error;
-	},
-
-	async removeMember(userId: string, entityId: string) {
-		const { error } = await supabase
-			.from("user_memberships")
-			.delete()
-			.eq("user_id", userId)
-			.eq("entity_id", entityId);
-
-		if (error) throw error;
-	},
-
-	async updateMemberRole(userId: string, entityId: string, role: string) {
-		const { error } = await supabase
-			.from("user_memberships")
-			.update({ role })
-			.eq("user_id", userId)
-			.eq("entity_id", entityId);
-
-		if (error) throw error;
 	},
 };
 
@@ -312,4 +368,33 @@ export const subscriptionUtils = {
 				return plan_features.team_features;
 		}
 	},
+};
+
+export const userUtils = {
+  async createUserIfNotExists(id: string, email: string) {
+    const { data: existingUser } = await supabase
+      .from('users')
+      .select('id')
+      .eq('id', id)
+      .single();
+
+    if (!existingUser) {
+      const { error } = await supabase
+        .from('users')
+        .insert({ id, email });
+
+      if (error) throw error;
+    }
+  },
+
+  async getUserByEmail(email: string) {
+    const { data, error } = await supabase
+      .from('users')
+      .select('id')
+      .eq('email', email)
+      .single();
+
+    if (error) throw error;
+    return data;
+  }
 };
