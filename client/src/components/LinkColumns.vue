@@ -6,7 +6,7 @@
         :description="tool.description ?? ''" :link="tool.url" :index="index" :shortcut="ctrl" class="mb-2"
         :onDelete="() => handleDeleteLink('tool', index)" :onEdit="() => handleEditLink(tools[index])" />
       <AddLinkCard v-if="canAddLinks" :columnType="'tools'" :tools="props.tools" :docs="props.docs"
-        :userId="props.userId" :maxPins="props.maxPins" @linkAdded="handleNewTool" />
+        :userId="props.userId" :maxPins="props.maxPins" @linkAdded="handleNewTool" :isPlanFree="isPlanFree" />
     </div>
     <div>
       <h2 class="text-xl">Docs</h2>
@@ -14,7 +14,7 @@
         :description="doc.description ?? ''" :link="doc.url" :index="index" :shortcut="alt" class="mb-2"
         :onDelete="() => handleDeleteLink('doc', index)" :onEdit="() => handleEditLink(docs[index])" />
       <AddLinkCard v-if="canAddLinks" :columnType="'docs'" :tools="props.tools" :docs="props.docs"
-        :userId="props.userId" :maxPins="props.maxPins" @linkAdded="handleNewDoc" />
+        :userId="props.userId" :maxPins="props.maxPins" @linkAdded="handleNewDoc" :isPlanFree="isPlanFree" />
     </div>
   </div>
   <EditLinkModal v-model="showEditModal" :link="editingLink" @linkUpdated="handleLinkUpdated" />
@@ -40,6 +40,7 @@ const props = defineProps<{
   canAddLinks?: boolean;
   userId: string | null;
   maxPins: number;
+  isPlanFree: boolean;
 }>();
 
 const emit = defineEmits<{

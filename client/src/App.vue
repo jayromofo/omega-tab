@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, nextTick, onMounted } from 'vue';
+import { ref, nextTick, onMounted, computed } from 'vue';
 import SearchBar from './components/SearchBar.vue';
 import LinkColumns from './components/LinkColumns.vue';
 import LandingPage from './components/LandingPage.vue';
@@ -127,6 +127,9 @@ async function loadUserTeams() {
       break;
     }
   }
+
+  currentRole.value = userTeams.value[0].role;
+
 }
 
 const plans: Tables<'plans'>[] = [
@@ -166,6 +169,27 @@ function switchPlan(plan: typeof plans[0]) {
   userPlan.value = plan;
 }
 
+const canShowAddLink = computed(() => {
+  // Show for free or plus plans
+  if (userPlan.value?.name === 'free' || userPlan.value?.name === 'plus') {
+    return true;
+  }
+
+  // Show for team admins/owners
+  if (
+    userPlan.value?.name === 'team' && (currentRole.value === 'admin' || currentRole.value === 'owner')) {
+    return true;
+  }
+
+  // Show for team admins/owners
+  if (
+    userPlan.value?.name === 'enterprise' && (currentRole.value === 'admin' || currentRole.value === 'owner')) {
+    return true;
+  }
+
+  return false;
+});
+
 </script>
 
 <template>
@@ -178,7 +202,7 @@ function switchPlan(plan: typeof plans[0]) {
         <v-container class="bg-primary">
           <v-row class="items-center">
             <v-col>
-              Plan:{{ userPlan?.name }} <br /> Max pins:{{ userPlan?.max_pins }}
+              Plan:{{ userPlan?.name }} <br /> Max pins:{{ userPlan?.max_pins }} <br /> Role:{{ currentRole }}
               <!-- <br /> Features: {{ userPlan?.features}} -->
             </v-col>
             <v-col class="text-end">
@@ -220,7 +244,7 @@ function switchPlan(plan: typeof plans[0]) {
         </div>
         <SearchBar :tools="tools" :docs="docs" />
         <LinkColumns v-if="userPlan" :tools="tools" :docs="docs" :userId="userId" :maxPins="userPlan.max_pins"
-          :can-add-links="true" @tool-added="handleToolAdded" @doc-added="handleDocAdded" />
+          :canAddLinks="canShowAddLink" @tool-added="handleToolAdded" @doc-added="handleDocAdded" :isPlanFree="userPlan.name === 'free'" />
         <v-dialog v-model="showHelpDialog" max-width="900px">
           <v-card>
             <v-card-title class="headline">Help</v-card-title>
@@ -273,20 +297,15 @@ function switchPlan(plan: typeof plans[0]) {
         </v-dialog>
       </div>
     </div>
-    <TeamManageModal  v-model="showTeamManageModal" :teamId="selectedTeamId" :userId="userId" :planId="userPlan?.id"
+    <TeamManageModal v-model="showTeamManageModal" :teamId="selectedTeamId" :userId="userId" :planId="userPlan?.id"
       @linkAdded="loadUserTeams" />
   </v-theme-provider>
   <div class="fixed bottom-4 right-4 bg-gray-800 p-4 rounded-lg shadow-lg z-50">
     <div class="mb-4">
       <h3 class="text-sm font-semibold mb-2">Plans:</h3>
       <div class="space-x-2">
-        <v-btn
-          v-for="plan in plans"
-          :key="plan.name"
-          :color="userPlan?.name === plan.name ? 'primary' : ''"
-          @click="switchPlan(plan)"
-          size="small"
-        >
+        <v-btn v-for="plan in plans" :key="plan.name" :color="userPlan?.name === plan.name ? 'primary' : ''"
+          @click="switchPlan(plan)" size="small">
           {{ plan.name }}
         </v-btn>
       </div>
@@ -295,13 +314,8 @@ function switchPlan(plan: typeof plans[0]) {
     <div>
       <h3 class="text-sm font-semibold mb-2">Roles:</h3>
       <div class="space-x-2">
-        <v-btn
-          v-for="role in roles"
-          :key="role"
-          @click="currentRole = role"
-          :color="currentRole === role ? 'primary' : ''"
-          size="small"
-        >
+        <v-btn v-for="role in roles" :key="role" @click="currentRole = role"
+          :color="currentRole === role ? 'primary' : ''" size="small">
           {{ role }}
         </v-btn>
       </div>

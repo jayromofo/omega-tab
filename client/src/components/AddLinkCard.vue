@@ -1,6 +1,6 @@
 <!-- AddLinkCard.vue -->
 <template>
-   <div @click="handleClick"
+   <div v-if="!isAtMaxPins || (isAtMaxPins && isPlanFree)" @click="handleClick"
        class="group cursor-pointer border-2 rounded-lg p-4 transition-all duration-300 flex flex-col items-center justify-center space-y-2"
        :class="[
            isAtMaxPins
@@ -66,6 +66,7 @@
         docs: Link[];
         userId: string | null;
         maxPins: number;
+        isPlanFree: boolean;
     }>();
 
     const emit = defineEmits<(e: 'linkAdded', link: Link) => void>();
