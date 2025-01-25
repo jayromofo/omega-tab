@@ -52,6 +52,7 @@
     import { ref,computed } from 'vue';
     import { linkUtils } from '@/composables/useDatabase';
     import type { Tables } from '../types/Database';
+    import {useRouter} from 'vue-router';
     type Link = Tables<'links'>;
 
     type formData = {
@@ -71,6 +72,7 @@
 
     const emit = defineEmits<(e: 'linkAdded', link: Link) => void>();
 
+    const router = useRouter();
     const isModalOpen = ref(false);
     const isLoading = ref(false);
     const hover = ref(false);
@@ -88,7 +90,7 @@
 
     const handleClick = () => {
     if (isAtMaxPins.value) {
-        // TODO: Navigate to upgrade page or open upgrade modal
+        router.push('/plans');
         return;
     }
     openModal();
