@@ -19,6 +19,7 @@
   },
   "dependencies": {
     "@clerk/clerk-js": "^5.47.0",
+    "@stripe/stripe-js": "^5.5.0",
     "@supabase/supabase-js": "^2.48.0",
     "@types/lodash": "^4.17.14",
     "axios": "^1.7.9",
