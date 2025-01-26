@@ -29,3 +29,5 @@ coverage
 .env
 *.tsbuildinfo
 tailwind.css
+
+server/target/*
