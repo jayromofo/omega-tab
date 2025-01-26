@@ -71,7 +71,7 @@ dependencies = [
  "smol_str",
  "thiserror",
  "tokio",
- "uuid",
+ "uuid 0.8.2",
 ]
 
 [[package]]
@@ -189,12 +189,14 @@ dependencies = [
  "anyhow",
  "async-stripe",
  "axum",
+ "chrono",
  "dotenv",
  "reqwest",
  "serde",
  "serde_json",
  "tokio",
  "tower-http",
+ "uuid 1.12.1",
 ]
 
 [[package]]
@@ -238,8 +240,10 @@ checksum = "7e36cc9d416881d2e24f9a963be5fb1cd90966419ac844274161d10488b3e825"
 dependencies = [
  "android-tzdata",
  "iana-time-zone",
+ "js-sys",
  "num-traits",
  "serde",
+ "wasm-bindgen",
  "windows-targets",
 ]
 
@@ -1914,6 +1918,12 @@ checksum = "bc5cf98d8186244414c848017f0e2676b3fcb46807f6668a97dfe67359a3c4b7"
 dependencies = [
  "getrandom 0.2.15",
 ]
+
+[[package]]
+name = "uuid"
+version = "1.12.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b3758f5e68192bb96cc8f9b7e2c2cfdabb435499a28499a42f8f984092adad4b"
 
 [[package]]
 name = "vcpkg"

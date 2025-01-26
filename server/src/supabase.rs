@@ -42,7 +42,7 @@ pub struct Link {
     pub column_type: String,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct Plan {
     pub id: String,
     pub name: String,
@@ -52,7 +52,7 @@ pub struct Plan {
     pub stripe_id: Option<String>,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Default)]
 pub struct Subscription {
     pub id: String,
     pub entity_id: String,
@@ -79,6 +79,7 @@ pub struct Supabase {
     api_key: String,
 }
 
+#[allow(dead_code)]
 impl Supabase {
     pub fn new(url: String, api_key: String) -> Result<Self> {
         let client = Client::new();
@@ -119,6 +120,28 @@ impl Supabase {
 
         let mut users: Vec<User> = response.json().await?;
         users.pop().ok_or_else(|| anyhow::anyhow!("User not found"))
+    }
+
+    pub async fn get_user_by_email(&self, email: &str) -> Result<User> {
+        let response = self.client
+            .get(format!("{}/rest/v1/users?email=eq.{}", self.url, email))
+            .headers(self.build_headers()?)
+            .send()
+            .await?;
+
+        let mut users: Vec<User> = response.json().await?;
+        users.pop().ok_or_else(|| anyhow::anyhow!("User not found"))
+    }
+
+    pub async fn get_plan_by_stripe_id(&self, stripe_id: &str) -> Result<Plan> {
+        let response = self.client
+            .get(format!("{}/rest/v1/plans?stripe_id=eq.{}", self.url, stripe_id))
+            .headers(self.build_headers()?)
+            .send()
+            .await?;
+
+        let mut plans: Vec<Plan> = response.json().await?;
+        plans.pop().ok_or_else(|| anyhow::anyhow!("Plan not found"))
     }
 
     pub async fn create_user(&self, email: &str) -> Result<User> {
