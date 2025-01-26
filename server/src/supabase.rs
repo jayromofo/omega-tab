@@ -1,58 +1,423 @@
+use anyhow::Result;
+use reqwest::{header::HeaderMap, Client};
+use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
+
+// Type definitions matching Database.ts
+#[derive(Debug, Serialize, Deserialize)]
+pub struct User {
+    pub id: String,
+    pub email: String,
+    pub created_at: String,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct Team {
+    pub id: String,
+    pub name: String,
+    pub organization_id: Option<String>,
+    pub created_at: String,
+    pub owner_id: Option<String>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct Organization {
+    pub id: String,
+    pub name: String,
+    pub created_at: String,
+    pub owner_id: Option<String>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct Link {
+    pub id: String,
+    pub title: String,
+    pub url: String,
+    pub icon: Option<String>,
+    pub order_index: i32,
+    pub owner_type: String,
+    pub owner_id: String,
+    pub created_at: String,
+    pub description: Option<String>,
+    pub column_type: String,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct Plan {
+    pub id: String,
+    pub name: String,
+    pub max_pins: i32,
+    pub features: serde_json::Value,
+    pub created_at: Option<String>,
+    pub stripe_id: Option<String>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct Subscription {
+    pub id: String,
+    pub entity_id: String,
+    pub entity_type: String,
+    pub plan_id: String,
+    pub status: String,
+    pub stripe_subscription_id: Option<String>,
+    pub current_period_end: Option<String>,
+    pub created_at: Option<String>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct UserMembership {
+    pub user_id: String,
+    pub entity_id: String,
+    pub entity_type: String,
+    pub role: String,
+    pub created_at: String,
+}
+
 pub struct Supabase {
+    client: Client,
     url: String,
     api_key: String,
 }
 
 impl Supabase {
-
-    pub fn new(url: String, api_key: String) -> Self {
-        Self { url, api_key }
+    pub fn new(url: String, api_key: String) -> Result<Self> {
+        let client = Client::new();
+        Ok(Self {
+            client,
+            url,
+            api_key,
+        })
     }
 
-    pub async fn create_user() -> anyhow::Result<()> {
-        let client = self.build_client();
-        let request_url = format!("{}/auth/v1/signup", &self.url);
+    fn build_headers(&self) -> Result<HeaderMap> {
+        let mut headers = HeaderMap::new();
+        headers.insert("apikey", self.api_key.parse()?);
+        headers.insert(
+            "Authorization",
+            format!("Bearer {}", self.api_key).parse()?,
+        );
+        Ok(headers)
+    }
 
-        let json = json!({
-            "email": "evan",
+    // Users
+    pub async fn get_users(&self) -> Result<Vec<User>> {
+        let response = self.client
+            .get(format!("{}/rest/v1/users", self.url))
+            .headers(self.build_headers()?)
+            .send()
+            .await?;
+
+        Ok(response.json().await?)
+    }
+
+    pub async fn get_user(&self, id: &str) -> Result<User> {
+        let response = self.client
+            .get(format!("{}/rest/v1/users?id=eq.{}", self.url, id))
+            .headers(self.build_headers()?)
+            .send()
+            .await?;
+
+        let mut users: Vec<User> = response.json().await?;
+        users.pop().ok_or_else(|| anyhow::anyhow!("User not found"))
+    }
+
+    pub async fn create_user(&self, email: &str) -> Result<User> {
+        let user = serde_json::json!({
+            "email": email,
         });
 
-        let response = self.send_post_request(client, request_url, json).await.unwrap();
+        let response = self.client
+            .post(format!("{}/rest/v1/users", self.url))
+            .headers(self.build_headers()?)
+            .json(&user)
+            .send()
+            .await?;
+
+        Ok(response.json().await?)
+    }
+
+    pub async fn update_user(&self, id: &str, updates: HashMap<String, serde_json::Value>) -> Result<User> {
+        let response = self.client
+            .patch(format!("{}/rest/v1/users?id=eq.{}", self.url, id))
+            .headers(self.build_headers()?)
+            .json(&updates)
+            .send()
+            .await?;
+
+        Ok(response.json().await?)
+    }
+
+    pub async fn delete_user(&self, id: &str) -> Result<()> {
+        self.client
+            .delete(format!("{}/rest/v1/users?id=eq.{}", self.url, id))
+            .headers(self.build_headers()?)
+            .send()
+            .await?;
 
         Ok(())
     }
 
-    fn build_client(&self) -> reqwest::blocking::Client {
-        let builder = reqwest::blocking::ClientBuilder::new();
-        let client = builder.user_agent(&self.user_agent).build().unwrap();
-        client
-    }
-
-    async fn send_post_request(
-        &self,
-        client: reqwest::Client,
-        request_url: String,
-        json: serde_json::Value,
-    ) -> anyhow::Result<()> {
-        println!("> Sending POST request to: {}", request_url);
-
-        let mut headers = reqwest::header::HeaderMap::new();
-        headers.insert(
-            "apikey",
-            reqwest::header::HeaderValue::from_str(&self.api_key)?,
-        );
-        headers.insert(
-            reqwest::header::AUTHORIZATION,
-            reqwest::header::HeaderValue::from_str(&format!("Bearer {}", &self.api_key))?,
-        );
-
-        let request = client
-            .post(request_url)
-            .headers(headers)
-            .json(&json)
+    // Teams
+    pub async fn get_teams(&self) -> Result<Vec<Team>> {
+        let response = self.client
+            .get(format!("{}/rest/v1/teams", self.url))
+            .headers(self.build_headers()?)
             .send()
             .await?;
 
-        Ok(response)
+        Ok(response.json().await?)
     }
+
+    pub async fn get_team(&self, id: &str) -> Result<Team> {
+        let response = self.client
+            .get(format!("{}/rest/v1/teams?id=eq.{}", self.url, id))
+            .headers(self.build_headers()?)
+            .send()
+            .await?;
+
+        let mut teams: Vec<Team> = response.json().await?;
+        teams.pop().ok_or_else(|| anyhow::anyhow!("Team not found"))
+    }
+
+    pub async fn create_team(&self, name: &str, owner_id: &str, plan_id: &str, org_id: Option<&str>) -> Result<Team> {
+        let mut params = vec![
+            ("team_name", name.to_string()),
+            ("owner_id", owner_id.to_string()),
+            ("plan_id", plan_id.to_string()),
+        ];
+
+        if let Some(org_id) = org_id {
+            params.push(("org_id", org_id.to_string()));
+        }
+
+        let response = self.client
+            .post(format!("{}/rest/v1/rpc/create_team", self.url))
+            .headers(self.build_headers()?)
+            .form(&params)
+            .send()
+            .await?;
+
+        Ok(response.json().await?)
+    }
+
+    pub async fn update_team(&self, id: &str, updates: HashMap<String, serde_json::Value>) -> Result<Team> {
+        let response = self.client
+            .patch(format!("{}/rest/v1/teams?id=eq.{}", self.url, id))
+            .headers(self.build_headers()?)
+            .json(&updates)
+            .send()
+            .await?;
+
+        Ok(response.json().await?)
+    }
+
+    pub async fn delete_team(&self, id: &str) -> Result<()> {
+        self.client
+            .delete(format!("{}/rest/v1/teams?id=eq.{}", self.url, id))
+            .headers(self.build_headers()?)
+            .send()
+            .await?;
+
+        Ok(())
+    }
+
+    // Links
+    pub async fn get_links(&self, owner_id: &str, owner_type: &str) -> Result<Vec<Link>> {
+        let response = self.client
+            .get(format!("{}/rest/v1/links?owner_id=eq.{}&owner_type=eq.{}",
+                self.url, owner_id, owner_type))
+            .headers(self.build_headers()?)
+            .send()
+            .await?;
+
+        Ok(response.json().await?)
+    }
+
+    pub async fn create_link(&self, link: Link) -> Result<Link> {
+        let response = self.client
+            .post(format!("{}/rest/v1/links", self.url))
+            .headers(self.build_headers()?)
+            .json(&link)
+            .send()
+            .await?;
+
+        Ok(response.json().await?)
+    }
+
+    pub async fn update_link(&self, id: &str, updates: HashMap<String, serde_json::Value>) -> Result<Link> {
+        let response = self.client
+            .patch(format!("{}/rest/v1/links?id=eq.{}", self.url, id))
+            .headers(self.build_headers()?)
+            .json(&updates)
+            .send()
+            .await?;
+
+        Ok(response.json().await?)
+    }
+
+    pub async fn delete_link(&self, id: &str) -> Result<()> {
+        self.client
+            .delete(format!("{}/rest/v1/links?id=eq.{}", self.url, id))
+            .headers(self.build_headers()?)
+            .send()
+            .await?;
+
+        Ok(())
+    }
+
+    // Organizations
+    pub async fn get_organizations(&self) -> Result<Vec<Organization>> {
+        let response = self.client
+            .get(format!("{}/rest/v1/organizations", self.url))
+            .headers(self.build_headers()?)
+            .send()
+            .await?;
+
+        Ok(response.json().await?)
+    }
+
+    pub async fn create_organization(&self, org_name: &str, owner_id: &str, plan_id: &str) -> Result<Organization> {
+        let params = vec![
+            ("org_name", org_name.to_string()),
+            ("owner_id", owner_id.to_string()),
+            ("plan_id", plan_id.to_string()),
+        ];
+
+        let response = self.client
+            .post(format!("{}/rest/v1/rpc/create_organization", self.url))
+            .headers(self.build_headers()?)
+            .form(&params)
+            .send()
+            .await?;
+
+        Ok(response.json().await?)
+    }
+
+    pub async fn update_organization(&self, id: &str, updates: HashMap<String, serde_json::Value>) -> Result<Organization> {
+        let response = self.client
+            .patch(format!("{}/rest/v1/organizations?id=eq.{}", self.url, id))
+            .headers(self.build_headers()?)
+            .json(&updates)
+            .send()
+            .await?;
+
+        Ok(response.json().await?)
+    }
+
+    pub async fn delete_organization(&self, id: &str) -> Result<()> {
+        self.client
+            .delete(format!("{}/rest/v1/organizations?id=eq.{}", self.url, id))
+            .headers(self.build_headers()?)
+            .send()
+            .await?;
+
+        Ok(())
+    }
+
+    // User Memberships
+    pub async fn get_user_memberships(&self, user_id: &str) -> Result<Vec<UserMembership>> {
+        let response = self.client
+            .get(format!("{}/rest/v1/user_memberships?user_id=eq.{}", self.url, user_id))
+            .headers(self.build_headers()?)
+            .send()
+            .await?;
+
+        Ok(response.json().await?)
+    }
+
+    pub async fn add_member(&self, membership: UserMembership) -> Result<UserMembership> {
+        let response = self.client
+            .post(format!("{}/rest/v1/user_memberships", self.url))
+            .headers(self.build_headers()?)
+            .json(&membership)
+            .send()
+            .await?;
+
+        Ok(response.json().await?)
+    }
+
+    pub async fn update_member_role(&self, user_id: &str, entity_id: &str, role: &str) -> Result<UserMembership> {
+        let updates = HashMap::from([
+            ("role".to_string(), serde_json::Value::String(role.to_string())),
+        ]);
+
+        let response = self.client
+            .patch(format!("{}/rest/v1/user_memberships?user_id=eq.{}&entity_id=eq.{}",
+                self.url, user_id, entity_id))
+            .headers(self.build_headers()?)
+            .json(&updates)
+            .send()
+            .await?;
+
+        Ok(response.json().await?)
+    }
+
+    pub async fn remove_member(&self, user_id: &str, entity_id: &str) -> Result<()> {
+        self.client
+            .delete(format!("{}/rest/v1/user_memberships?user_id=eq.{}&entity_id=eq.{}",
+                self.url, user_id, entity_id))
+            .headers(self.build_headers()?)
+            .send()
+            .await?;
+
+        Ok(())
+    }
+
+    // Plans
+    pub async fn get_plans(&self) -> Result<Vec<Plan>> {
+        let response = self.client
+            .get(format!("{}/rest/v1/plans", self.url))
+            .headers(self.build_headers()?)
+            .send()
+            .await?;
+
+        Ok(response.json().await?)
+    }
+
+    pub async fn get_plan(&self, id: &str) -> Result<Plan> {
+        let response = self.client
+            .get(format!("{}/rest/v1/plans?id=eq.{}", self.url, id))
+            .headers(self.build_headers()?)
+            .send()
+            .await?;
+
+        let mut plans: Vec<Plan> = response.json().await?;
+        plans.pop().ok_or_else(|| anyhow::anyhow!("Plan not found"))
+    }
+
+    // Subscriptions
+    pub async fn get_user_subscription(&self, user_id: &str) -> Result<Subscription> {
+        let response = self.client
+            .get(format!("{}/rest/v1/subscriptions?entity_id=eq.{}&entity_type=eq.user",
+                self.url, user_id))
+            .headers(self.build_headers()?)
+            .send()
+            .await?;
+
+        let mut subscriptions: Vec<Subscription> = response.json().await?;
+        subscriptions.pop().ok_or_else(|| anyhow::anyhow!("Subscription not found"))
+    }
+
+    pub async fn create_subscription(&self, subscription: Subscription) -> Result<Subscription> {
+        let response = self.client
+            .post(format!("{}/rest/v1/subscriptions", self.url))
+            .headers(self.build_headers()?)
+            .json(&subscription)
+            .send()
+            .await?;
+
+        Ok(response.json().await?)
+    }
+
+    pub async fn update_subscription(&self, id: &str, updates: HashMap<String, serde_json::Value>) -> Result<Subscription> {
+        let response = self.client
+            .patch(format!("{}/rest/v1/subscriptions?id=eq.{}", self.url, id))
+            .headers(self.build_headers()?)
+            .json(&updates)
+            .send()
+            .await?;
+
+        Ok(response.json().await?)
+    }
+
 }
