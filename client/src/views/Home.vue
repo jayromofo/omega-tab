@@ -148,12 +148,16 @@ const userTeams = ref<Array<{ id: string; name: string; role: string; organizati
 const showTeamManageModal = ref(false);
 const selectedTeamId = ref<string>('');
 
-
 const isLoggedIn = ref(false);
 const showSignIn = ref(false);
 const isLoading = ref(true);
 const currentRole = ref('member');
 const isOrganization = ref(false);
+const stripePlanId = ref<string | null>(null);
+const currentPeriodEnd = ref<string | null>(null);
+const activeSubscription = computed(() => {
+  return stripePlanId.value && stripePlanId.value.length > 0;
+});
 
 const userId = ref<string | null>(null);
 const userPlan = ref<Tables<'plans'> | null>(null);
@@ -208,19 +212,80 @@ onMounted(async () => {
       console.error('Error creating user:', error);
     }
 
-    // get users links
-    const links = await linkUtils.getUserLinks(clerk.user.id);
-    for (const link of links) {
-      if (link.column_type === "tools") handleToolAdded(link); else handleDocAdded(link);
+    // check for an active subscription
+    try {
+      const response = await fetch('http://localhost:3000/api/verify-subscription', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          email: clerk.user.emailAddresses[0].emailAddress
+        })
+      });
+
+      if (!response.ok) throw new Error('Failed to verify subscription');
+
+      const subscription = await response.json();
+
+      // only update if not an empty json object
+      if (Object.keys(subscription).length === 0) {
+        stripePlanId.value = null;
+        currentPeriodEnd.value = null;
+      } else {
+        // Update user's plan based on subscription status
+        stripePlanId.value = subscription.plan_id;
+        currentPeriodEnd.value = subscription.current_period_end;
+      }
+    } catch (error) {
+      console.error('Error verifying subscription:', error);
     }
 
     // get users plans
-    userPlan.value = await subscriptionUtils.getUserPlan(userId.value);
-    // @ts-expect-error
-    if (!userPlan.value) {
-      console.error('User plan not found');
-    } else if (!userPlan.value.max_pins) {
-      userPlan.value.max_pins = 6;
+    // if no sub is active, force to free plan
+    if (!activeSubscription.value) {
+      userPlan.value = await subscriptionUtils.getFreePlan();
+    } else {
+      if (!stripePlanId.value) throw new Error('Failed to find stripe plan id');
+      if (!currentPeriodEnd.value) throw new Error('Failed to find current period end');
+
+      // if there is a sub active, check it
+      userPlan.value = await subscriptionUtils.getUserPlan(userId.value);
+      // if they are still on the free plan with an active sub, create their correct plan records
+      if (userPlan.value?.name === 'free') {
+
+        // grab all the plans because we need their IDs and their stripe ids
+        const all_plans = await subscriptionUtils.getAllPlans();
+        // get the matching plan
+        const users_new_plan = all_plans?.find(p => p.stripe_id === stripePlanId.value);
+        if (!users_new_plan) throw new Error('Failed to find matching plan');
+
+        let entity_type: "team" | "user" | "organization";
+        if (users_new_plan.name === 'plus') entity_type = 'user';
+        else if (users_new_plan.name === 'team') entity_type = 'team';
+        else if (users_new_plan.name === 'enterprise') entity_type = 'organization';
+        else throw new Error('Failed to find matching entity type');
+
+        // first create the subscription
+
+        // sub for plus plan
+        await subscriptionUtils.createSubscription(userId.value, entity_type, users_new_plan.id, stripePlanId.value, currentPeriodEnd.value);
+      }
+    }
+
+    // get users links
+    let limit: number | null;
+
+    // ensure the free plan is always restricted to 6 pins
+    if (userPlan.value?.name === 'free') {
+      limit = 6;
+    } else {
+      limit = null;
+    }
+
+    const links = await linkUtils.getUserLinks(clerk.user.id, limit);
+    for (const link of links) {
+      if (link.column_type === "tools") handleToolAdded(link); else handleDocAdded(link);
     }
 
     // check users team
@@ -268,6 +333,7 @@ const plans: Tables<'plans'>[] = [
     max_pins: 6,
     features: { custom_domains: false, analytics: false, team_features: false },
     created_at: null,
+    stripe_id: '',
     id: ''
   },
   {
@@ -275,6 +341,7 @@ const plans: Tables<'plans'>[] = [
     max_pins: 20,
     features: { custom_domains: false, analytics: false, team_features: false },
     created_at: null,
+    stripe_id: 'prod_RedoeQpFeq9qCd',
     id: '5eb628db-35df-4c0d-80b8-2a609aa8bddd'
   },
   {
@@ -282,6 +349,7 @@ const plans: Tables<'plans'>[] = [
     max_pins: 50,
     features: { custom_domains: true, analytics: true, team_features: true },
     created_at: null,
+    stripe_id: '',
     id: '48c706b0-6da9-439a-8ce5-916544130a70'
   },
   {
@@ -289,6 +357,7 @@ const plans: Tables<'plans'>[] = [
     max_pins: 100,
     features: { custom_domains: true, analytics: true, team_features: true },
     created_at: null,
+    stripe_id: '',
     id: 'f5dfd34a-62a0-4963-8b82-097a06baf99f'
   }
 ];

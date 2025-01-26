@@ -65,13 +65,13 @@ const handleCheckout = async () => {
     if (!stripe) throw new Error('Stripe failed to load');
 
     // Create checkout session on your backend
-    const response = await fetch('/api/create-checkout-session', {
+    const response = await fetch('http://localhost:3000/api/create-checkout-session', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        planId: props.planId,
+        plan_id: props.planId,
       }),
     });
 

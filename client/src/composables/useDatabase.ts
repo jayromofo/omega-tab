@@ -24,13 +24,19 @@ const supabaseKey = import.meta.env.VITE_SUPABASE_KEY;
 const supabase = createClient<Database>(supabaseUrl, supabaseKey);
 
 export const linkUtils = {
-	async getUserLinks(userId: string) {
-		const { data, error } = await supabase
+	async getUserLinks(userId: string, limit: number | null) {
+		let query = supabase
 			.from("links")
 			.select("*")
 			.eq("owner_id", userId)
 			.eq("owner_type", "user")
 			.order("order_index");
+
+		if (limit) {
+			query = query.limit(limit);
+		}
+
+		const { data, error } = await query;
 
 		if (error) throw error;
 		return data;
@@ -321,6 +327,20 @@ export const subscriptionUtils = {
 		}, memberships[0].plans);
 	},
 
+	async getFreePlan() {
+		const { data: freePlan } = await supabase
+			.from("plans")
+			.select()
+			.eq("name", "free")
+			.single();
+		return freePlan;
+	},
+
+	async getAllPlans() {
+		const { data: plans } = await supabase.from("plans").select();
+		return plans;
+	},
+
 	async enforceUserLimits(
 		userId: string,
 		action: "pin" | "domain" | "analytics" | "team",
@@ -353,6 +373,30 @@ export const subscriptionUtils = {
 				return plan_features.team_features;
 		}
 	},
+
+	async createSubscription(
+		entityId: string,
+		entityType: 'user' | 'team' | 'organization',
+		planId: string,
+		stripeSubscriptionId: string,
+		currentPeriodEnd: string
+	) {
+		const { data, error } = await supabase
+			.from('subscriptions')
+			.insert({
+				entity_id: entityId,
+				entity_type: entityType,
+				plan_id: planId,
+				stripe_subscription_id: stripeSubscriptionId,
+				current_period_end: currentPeriodEnd,
+				status: 'active'
+			})
+			.select()
+			.single();
+
+		if (error) throw error;
+		return data;
+	}
 };
 
 export const userUtils = {

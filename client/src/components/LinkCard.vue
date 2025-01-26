@@ -31,7 +31,7 @@ const copyToClipboard = (text: string) => {
     :href="link"
     target="_blank"
     variant="tonal"
-    class="tool-link pa-4 d-flex align-center"
+    class="tool-link pa-4 mb-2 d-flex align-center"
     :ripple="false"
   >
     <div class="d-flex align-center flex-grow-1">

@@ -57,11 +57,7 @@
             </v-list>
           </v-card-item>
           <v-card-actions class="pa-4">
-            <v-btn block color="primary" variant="flat" @click="handleUpgrade({
-              id: 'price_plus_monthly',
-              name: 'Plus',
-              price: 8
-            })">Upgrade to Plus</v-btn>
+            <a class="w-full" color="primary" :href=PlusPlanUrl><v-btn block variant="flat" color="primary">Upgrade to Plus</v-btn></a>
           </v-card-actions>
         </v-card>
 
@@ -151,6 +147,7 @@ const selectedPlan = ref({
   name: '',
   price: 0
 });
+const PlusPlanUrl = import.meta.env.VITE_PLUS_PLAN_URL;
 
 const handleBack = () => {
   router.go(-1);
