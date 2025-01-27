@@ -1,13 +1,19 @@
 mod stripe_client;
 mod supabase;
 
-use axum::extract::Path;
-use axum::{extract::Json, http::StatusCode};
 use axum::{
+    extract::{
+        Path,
+        Json
+    },
+    http::StatusCode,
     routing::{get, post},
     Router,
 };
-use chrono::Utc;
+use chrono::{
+    TimeZone,
+    Utc,
+};
 use dotenv::dotenv;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
@@ -15,7 +21,6 @@ use std::collections::HashMap;
 use stripe_client::StripeClient;
 use supabase::Supabase;
 use tower_http::cors::{Any, CorsLayer};
-use chrono::TimeZone;
 
 #[derive(Serialize)]
 pub struct SubscriptionResponse {
@@ -45,16 +50,8 @@ async fn main() {
     let app = Router::new()
         .route("/hello", get(hello_handler))
         .route("/confirm", post(confirm_handler))
-        .route(
-            "/links/{user_id}", get({
-                move |path| links_handler(path)
-            }),
-        )
-        .route(
-            "/plan/{plan_id}", get({
-                move |path| plan_handler(path)
-            }),
-        )
+        .route("/links/{user_id}", get(move |path| links_handler(path)))
+        .route("/plan/{plan_id}", get(move |path| plan_handler(path)))
         .layer(cors);
 
     let listener = tokio::net::TcpListener::bind("0.0.0.0:3000").await.unwrap();
@@ -136,13 +133,25 @@ async fn confirm_handler(
     println!("Got product id: {}", product_id);
     // Step 1: Verify/create user record
     let user = match supabase.get_user_by_email(&payload.email).await {
-        Ok(user) => user,
+        Ok(user) => {
+            println!("Found existing user: {:?}", user);
+            user
+        }
         Err(_) => {
-            // Create new user if doesn't exist
-            supabase
-                .create_user(&payload.email)
-                .await
-                .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?
+            println!(
+                "User not found, creating new user for email: {}",
+                payload.email
+            );
+            match supabase.create_user(&payload.email).await {
+                Ok(new_user) => {
+                    println!("Successfully created new user: {:?}", new_user);
+                    new_user
+                }
+                Err(e) => {
+                    println!("Failed to create user: {:?}", e);
+                    return Err(StatusCode::INTERNAL_SERVER_ERROR);
+                }
+            }
         }
     };
 
@@ -192,16 +201,23 @@ async fn confirm_handler(
                 plan_id: supabase_plan.clone().id,
                 status: "active".to_string(),
                 stripe_subscription_id: subscription.id.to_string(),
-                current_period_end:
-                    Utc.timestamp_opt(subscription.current_period_end, 0)
-                       .single()
-                       .expect("Invalid timestamp")
-                       .to_rfc3339(),
+                current_period_end: Utc
+                    .timestamp_opt(subscription.current_period_end, 0)
+                    .single()
+                    .expect("Invalid timestamp")
+                    .to_rfc3339(),
                 created_at: Utc::now().to_rfc3339(),
             };
 
             println!("new_sub: {:?}", new_sub);
-            if let Err(e) = supabase.create_subscription(new_sub).await {
+            if let Err(e) = supabase.create_subscription(
+                &new_sub.entity_id,
+                &new_sub.entity_type,
+                &new_sub.plan_id,
+                &new_sub.status,
+                &new_sub.stripe_subscription_id,
+                &new_sub.current_period_end,
+            ).await {
                 println!("Error creating subscription: {:?}", e);
                 return Err(StatusCode::INTERNAL_SERVER_ERROR);
             }
@@ -249,7 +265,6 @@ async fn confirm_handler(
 async fn links_handler(
     Path(user_id): Path<String>,
 ) -> Result<Json<Vec<supabase::Link>>, StatusCode> {
-
     let supabase = Supabase::new(
         std::env::var("SUPABASE_URL").expect("SUPABASE_URL must be set"),
         std::env::var("SUPABASE_KEY").expect("SUPABASE_KEY must be set"),

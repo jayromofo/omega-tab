@@ -17,7 +17,7 @@ pub struct Team {
     pub name: String,
     pub organization_id: Option<String>,
     pub created_at: String,
-    pub owner_id: Option<String>,
+    pub owner_id: String,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -25,7 +25,7 @@ pub struct Organization {
     pub id: String,
     pub name: String,
     pub created_at: String,
-    pub owner_id: Option<String>,
+    pub owner_id: String,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -33,12 +33,12 @@ pub struct Link {
     pub id: String,
     pub title: String,
     pub url: String,
-    pub icon: Option<String>,
+    pub icon: String,
     pub order_index: i32,
     pub owner_type: String,
     pub owner_id: String,
     pub created_at: String,
-    pub description: Option<String>,
+    pub description: String,
     pub column_type: String,
 }
 
@@ -149,9 +149,13 @@ impl Supabase {
     }
 
     pub async fn create_user(&self, email: &str) -> Result<User> {
-        let user = serde_json::json!({
-            "email": email,
-        });
+        let user: User = User {
+            id: uuid::Uuid::new_v4().to_string(),
+            email: email.to_string(),
+            created_at: chrono::Utc::now().to_rfc3339(),
+        };
+
+        println!("Creating user with payload: {:?}", user);
 
         let response = self
             .client
@@ -161,7 +165,12 @@ impl Supabase {
             .send()
             .await?;
 
-        Ok(response.json().await?)
+        if !response.status().is_success() {
+            let error_text = response.text().await?;
+            return Err(anyhow::anyhow!("Failed to create user: {}", error_text));
+        }
+
+        Ok(user)
     }
 
     pub async fn update_user(
@@ -221,14 +230,28 @@ impl Supabase {
         plan_id: &str,
         org_id: Option<&str>,
     ) -> Result<Team> {
+        let new_team: Team = Team {
+            id: uuid::Uuid::new_v4().to_string(),
+            name: name.to_string(),
+            owner_id: owner_id.to_string(),
+            organization_id: org_id.map(|id| id.to_string()),
+            created_at: chrono::Utc::now().to_rfc3339(),
+        };
+
+        let plan_id = plan_id.to_string();
+
         let mut params = vec![
-            ("team_name", name.to_string()),
-            ("owner_id", owner_id.to_string()),
-            ("plan_id", plan_id.to_string()),
+            ("team_name", &new_team.name),
+            ("owner_id", &new_team.owner_id),
+            ("plan_id", &plan_id),
+            ("created_at", &new_team.created_at),
         ];
 
-        if let Some(org_id) = org_id {
-            params.push(("org_id", org_id.to_string()));
+        if let Some(_org_id) = org_id {
+            params.push((
+                "organization_id",
+                new_team.organization_id.as_ref().unwrap(),
+            ));
         }
 
         let response = self
@@ -239,7 +262,12 @@ impl Supabase {
             .send()
             .await?;
 
-        Ok(response.json().await?)
+        if !response.status().is_success() {
+            return Err(anyhow::anyhow!(response.text().await?));
+        }
+
+        // Return local version of created team
+        Ok(new_team)
     }
 
     pub async fn update_team(
@@ -270,6 +298,7 @@ impl Supabase {
 
     // Links
     pub async fn get_links(&self, owner_id: &str, owner_type: &str) -> Result<Vec<Link>> {
+        println!("get_links");
         let response = self
             .client
             .get(format!(
@@ -280,10 +309,36 @@ impl Supabase {
             .send()
             .await?;
 
+        println!("response: {:?}", response);
         Ok(response.json().await?)
     }
 
-    pub async fn create_link(&self, link: Link) -> Result<Link> {
+    pub async fn create_link(
+        &self,
+        title: &str,
+        description: &str,
+        icon: &str,
+        order_index: i32,
+        url: &str,
+        owner_type: &str,
+        owner_id: &str,
+        column_type: &str,
+    ) -> Result<Link> {
+        let link: Link = Link {
+            id: uuid::Uuid::new_v4().to_string(),
+            title: title.to_string(),
+            url: url.to_string(),
+            icon: icon.to_string(),
+            order_index: order_index,
+            owner_type: owner_type.to_string(),
+            owner_id: owner_id.to_string(),
+            created_at: chrono::Utc::now().to_rfc3339(),
+            description: description.to_string(),
+            column_type: column_type.to_string(),
+        };
+
+        println!("Creating link with payload: {:?}", link);
+
         let response = self
             .client
             .post(format!("{}/rest/v1/links", self.url))
@@ -292,7 +347,12 @@ impl Supabase {
             .send()
             .await?;
 
-        Ok(response.json().await?)
+        if !response.status().is_success() {
+            let error_text = response.text().await?;
+            return Err(anyhow::anyhow!("Failed to create link: {}", error_text));
+        }
+
+        Ok(link)
     }
 
     pub async fn update_link(
@@ -337,23 +397,30 @@ impl Supabase {
         &self,
         org_name: &str,
         owner_id: &str,
-        plan_id: &str,
     ) -> Result<Organization> {
-        let params = vec![
-            ("org_name", org_name.to_string()),
-            ("owner_id", owner_id.to_string()),
-            ("plan_id", plan_id.to_string()),
-        ];
+        let organization: Organization = Organization {
+            id: uuid::Uuid::new_v4().to_string(),
+            name: org_name.to_string(),
+            owner_id: owner_id.to_string(),
+            created_at: chrono::Utc::now().to_rfc3339(),
+        };
+
+        println!("Creating organization with payload: {:?}", organization);
 
         let response = self
             .client
-            .post(format!("{}/rest/v1/rpc/create_organization", self.url))
+            .post(format!("{}/rest/v1/organizations", self.url))
             .headers(self.build_headers()?)
-            .form(&params)
+            .json(&organization)
             .send()
             .await?;
 
-        Ok(response.json().await?)
+        if !response.status().is_success() {
+            let error_text = response.text().await?;
+            return Err(anyhow::anyhow!("Failed to create organization: {}", error_text));
+        }
+
+        Ok(organization)
     }
 
     pub async fn update_organization(
@@ -497,8 +564,28 @@ impl Supabase {
             .pop()
             .ok_or_else(|| anyhow::anyhow!("Subscription not found"))
     }
+    pub async fn create_subscription(
+        &self,
+        entity_id: &str,
+        entity_type: &str,
+        plan_id: &str,
+        status: &str,
+        stripe_subscription_id: &str,
+        current_period_end: &str,
+    ) -> Result<Subscription> {
+        let subscription: Subscription = Subscription {
+            id: uuid::Uuid::new_v4().to_string(),
+            entity_id: entity_id.to_string(),
+            entity_type: entity_type.to_string(),
+            plan_id: plan_id.to_string(),
+            status: status.to_string(),
+            stripe_subscription_id: stripe_subscription_id.to_string(),
+            current_period_end: current_period_end.to_string(),
+            created_at: chrono::Utc::now().to_rfc3339(),
+        };
 
-    pub async fn create_subscription(&self, subscription: Subscription) -> Result<Subscription> {
+        println!("Creating subscription with payload: {:?}", subscription);
+
         let response = self
             .client
             .post(format!("{}/rest/v1/subscriptions", self.url))
@@ -507,16 +594,12 @@ impl Supabase {
             .send()
             .await?;
 
-        // TODO - fix this, error decoding response body
         if !response.status().is_success() {
             let error_text = response.text().await?;
-            return Err(anyhow::anyhow!(
-                "Failed to create subscription: {}",
-                error_text
-            ));
+            return Err(anyhow::anyhow!("Failed to create subscription: {}", error_text));
         }
 
-        Ok(response.json().await?)
+        Ok(subscription)
     }
 
     pub async fn update_subscription(
