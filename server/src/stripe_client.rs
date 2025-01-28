@@ -6,35 +6,6 @@ use stripe::{Client, Customer, ListCustomers};
 pub struct StripeClient {}
 
 impl StripeClient {
-    // pub async fn confirm_handler(
-    //     Json(payload): Json<CustomerRequest>,
-    // ) -> Json<SubscriptionResponse> {
-    //     let email = payload.email;
-    //     let customer = StripeClient::get_customer(&email).await;
-    //     let subscription = StripeClient::get_subscription(&customer.unwrap()).await;
-
-    //     match subscription {
-    //         Some(sub) => {
-    //             if let Some(item) = sub.items.data.into_iter().next() {
-    //                 if let Some(plan) = item.plan {
-    //                     if plan.active.unwrap_or(false) {
-    //                         return Json(SubscriptionResponse {
-    //                             plan_id: plan.product.unwrap().id().to_string(),
-    //                             current_period_end: sub.current_period_end,
-    //                         });
-    //                     }
-    //                 }
-    //             }
-    //         }
-    //         None => {}
-    //     }
-
-    //     Json(SubscriptionResponse {
-    //         plan_id: String::from(""),
-    //         current_period_end: 0,
-    //     })
-    // }
-
     pub async fn get_customer(email: &str) -> Option<Customer> {
         let secret_key = std::env::var("STRIPE_SECRET_KEY").expect("STRIPE_SECRET_KEY must be set");
 

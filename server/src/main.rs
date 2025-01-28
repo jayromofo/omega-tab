@@ -147,7 +147,7 @@ async fn create_user_handler(
 async fn confirm_handler(
     Json(payload): Json<CustomerRequest>,
 ) -> Result<Json<SubscriptionResponse>, StatusCode> {
-    println!("Received request for email: {}", payload.email);
+    println!("Confirming email: {}", payload.email);
     let free_plan_id = std::env::var("FREE_PLAN_ID").expect("FREE_PLAN_ID must be set");
 
     // Initialize Supabase client
@@ -159,7 +159,7 @@ async fn confirm_handler(
 
     println!("Initialized Supabase client");
     println!("Getting customer from Stripe");
-    // Get Stripe customer
+    // Get Stripe customer - if one has not been created, they have not subscribed
     let customer = match StripeClient::get_customer(&payload.email).await {
         Some(customer) => customer,
         None => {
@@ -170,8 +170,8 @@ async fn confirm_handler(
         }
     };
 
-    println!("Got customer from Stripe");
-    // Get Stripe subscription
+    println!("Got customer from Stripe, getting subscription");
+    // Get Stripe subscription - if one is not returned, they have not subscribed (or subscription is inactive)
     let subscription = match StripeClient::get_subscription(&customer).await {
         Some(sub) => sub,
         None => {
@@ -183,7 +183,7 @@ async fn confirm_handler(
     };
 
     println!("Got subscription from Stripe");
-    // Check if subscription is active
+    // Double check if subscription is active
     if !subscription.status.eq(&stripe::SubscriptionStatus::Active) {
         return Ok(Json(SubscriptionResponse {
             plan_id: free_plan_id,
@@ -192,7 +192,7 @@ async fn confirm_handler(
     }
 
     println!("Subscription is active");
-    // Get first subscription item
+    // Get the subscription- we need the product id for later
     let item = subscription
         .items
         .data
@@ -211,7 +211,7 @@ async fn confirm_handler(
         .id();
 
     println!("Got product id: {}", product_id);
-    // Step 1: Verify/create user record
+    // Verify user record
     let user = match supabase.get_user_by_email(&payload.email).await {
         Ok(user) => {
             println!("Found existing user: {:?}", user);
@@ -226,21 +226,18 @@ async fn confirm_handler(
         }
     };
 
-    println!("Got user from Supabase");
-    println!("User: {:?}", user);
-    // Step 2: Get corresponding Supabase plan
+    // Get corresponding Supabase plan
     let supabase_plan = supabase
         .get_plan_by_stripe_id(&product_id.to_string())
         .await
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
 
-    println!("Got Supabase plan");
     println!("Supabase plan: {:?}", supabase_plan);
-    // Step 3: Verify/create subscription record
-    let sub_result = supabase.get_user_subscription(&user.id).await;
-    println!("Got user subscription from Supabase");
 
-    println!("sub_result: {:?}", sub_result);
+    // Verify subscription record
+    let sub_result = supabase.get_user_subscription(&user.id).await;
+    
+    // verify we got the subcription
     match sub_result {
         Ok(sub) => {
             println!("Got subscription from Supabase");
@@ -263,7 +260,7 @@ async fn confirm_handler(
             }
         }
         Err(_) => {
-            println!("Creating subscription");
+            println!("No subscription found, creating subscription");
             // Create new subscription
             let new_sub = supabase::Subscription {
                 id: uuid::Uuid::new_v4().to_string(),
@@ -298,16 +295,14 @@ async fn confirm_handler(
         }
     }
 
-    println!("Created subscription");
-    // Step 4: Verify/create user membership
+    // Verify/create user membership
     let membership_result = supabase.get_user_memberships(&user.id).await;
-    println!("Got user memberships from Supabase");
-    println!("membership_result: {:?}", membership_result);
+
     match membership_result {
         Ok(memberships) => {
-            println!("Got memberships from Supabase good");
+            println!("Got membership vector from Supabase good");
             if memberships.is_empty() {
-                println!("Creating membership");
+                println!("Vector is empty, creating membership record");
                 let membership = supabase::UserMembership {
                     user_id: user.id.clone(),
                     entity_id: user.id.clone(),
@@ -323,13 +318,15 @@ async fn confirm_handler(
                 }
                 println!("Membership created successfully");
             }
-        }
-        Err(_) => return Err(StatusCode::INTERNAL_SERVER_ERROR),
+        },
+        Err(_) => {
+            println!("Error getting membership vector from Supabase");
+            return Err(StatusCode::INTERNAL_SERVER_ERROR);
+        } 
     }
 
-    println!("Created membership");
     println!("Returning response");
-    // Return successful response
+    // Return the subscription
     Ok(Json(SubscriptionResponse {
         plan_id: supabase_plan.id,
         current_period_end: subscription.current_period_end,

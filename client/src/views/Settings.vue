@@ -28,9 +28,13 @@
           <v-text-field v-model="fullName" label="Name" disabled class="mb-4" />
           <v-text-field v-model="email" label="Email" disabled class="mb-4" />
         </v-form>
-        <v-alert type="info" class="mt-8">
+        <v-alert type="info" class="my-8">
           More options and themes coming soon
         </v-alert>
+        <v-switch v-model="settings.searchHistory" label="Enable Search History" class="mb-4" color="primary" :disabled="userPlan?.name === 'free'" />
+        <v-switch v-model="settings.autocompleteSuggestions" label="Enable Autocomplete Suggestions Powered By Google" class="mb-4" color="primary" :disabled="userPlan?.name === 'free'" />
+        <v-switch v-model="settings.jiraIntegration" label="Enable Jira Integration" class="mb-4" color="primary" :disabled="userPlan?.name === 'free'" />
+        <v-switch v-model="settings.confluenceIntegration" label="Enable Confluence Integration" class="mb-4" color="primary" :disabled="userPlan?.name === 'free'" />
       </div>
 
       <!-- Team Management -->
@@ -38,9 +42,11 @@
         <template v-if="!isTeamPlan">
           <div class="text-center py-12">
             <v-icon icon="mdi-account-group" size="64" class="mb-4" />
-            <h3 class="text-2xl font-bold mb-4">Upgrade to Team Plan</h3>
+            <h3 class="text-2xl font-bold mb-4">Team Plan Coming Soon</h3>
+            <!-- <h3 class="text-2xl font-bold mb-4">Upgrade to Team Plan</h3>
             <p class="mb-6">Access team features by upgrading to our team plan</p>
-            <v-btn color="primary" @click="router.push('/plans')">View Plans</v-btn>
+            <v-btn color="primary" @click="router.push('/plans')">View Plans</v-btn> -->
+
           </div>
         </template>
         <template v-else-if="!hasTeam">
@@ -93,9 +99,9 @@
         <template v-if="!isEnterprisePlan">
           <div class="text-center py-12">
             <v-icon icon="mdi-domain" size="64" class="mb-4" />
-            <h3 class="text-2xl font-bold mb-4">Enterprise Organizations</h3>
-            <p class="mb-6">Contact sales to discuss an enterprise plan for organizations with multiple teams</p>
-            <v-btn color="primary" @click="contactSales">Contact Sales</v-btn>
+            <h3 class="text-2xl font-bold mb-4">Enterprise Plan Coming Soon</h3>
+            <!-- <p class="mb-6">Contact sales to discuss an enterprise plan for organizations with multiple teams</p>
+            <v-btn color="primary" @click="contactSales">Contact Sales</v-btn> -->
           </div>
         </template>
         <template v-else>
@@ -238,6 +244,13 @@ const isTeamPlan = computed(() => userPlan?.name === 'team' || userPlan?.name ==
 const isEnterprisePlan = computed(() => userPlan?.name === 'enterprise');
 const showTeamTab = computed(() => isTeamPlan.value);
 const hasTeam = computed(() => teamMembers.value.length > 0);
+
+const settings = ref({
+  searchHistory: false,
+  autocompleteSuggestions: false,
+  jiraIntegration: false,
+  confluenceIntegration: false,
+});
 
 const filteredOrgMembers = computed(() => {
   if (!memberSearch.value) return orgMembers.value;
