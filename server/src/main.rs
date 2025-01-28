@@ -4,7 +4,7 @@ mod supabase;
 use axum::{
     extract::{Json, Path},
     http::StatusCode,
-    routing::{get, post},
+    routing::{get, post, put, delete},
     Router,
 };
 use chrono::{TimeZone, Utc};
@@ -43,6 +43,36 @@ pub struct CreateUserResponse {
     message: String,
 }
 
+#[derive(Deserialize)]
+pub struct CreateLinkRequest {
+    url: String,
+    description: Option<String>,
+    title: String,
+    next_order_index: i32,
+    owner_type: String,
+    owner_id: String,
+    column_type: String,
+}
+
+#[derive(Serialize)]
+pub struct CreateLinkResponse {
+    message: String,
+}
+
+#[derive(Deserialize)]
+pub struct UpdateLinkRequest {
+    url: Option<String>,
+    description: Option<String>,
+    title: Option<String>,
+    icon: Option<String>,
+    column_type: Option<String>,
+}
+
+#[derive(Serialize)]
+pub struct UpdateLinkResponse {
+    message: String,
+}
+
 #[tokio::main]
 async fn main() {
     dotenv().ok();
@@ -55,7 +85,14 @@ async fn main() {
     let app = Router::new()
         .route("/hello", get(hello_handler))
         .route("/confirm", post(confirm_handler))
+        // get links
         .route("/links/{user_id}", get(move |path| links_handler(path)))
+        // create links
+        .route("/link", post(create_link))
+        // update link
+        .route("/link/{link_id}", put(update_link))
+        // delete link
+        .route("/link/{link_id}", delete(delete_link))
         .route("/plan/{plan_id}", get(move |path| plan_handler(path)))
         .route("/create_user", post(create_user_handler))
         .layer(cors);
@@ -312,6 +349,90 @@ async fn links_handler(
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
 
     Ok(Json(links))
+}
+
+async fn create_link(
+    Json(payload): Json<CreateLinkRequest>,
+) -> Result<Json<CreateLinkResponse>, StatusCode> {
+    let supabase = Supabase::new(
+        std::env::var("SUPABASE_URL").expect("SUPABASE_URL must be set"),
+        std::env::var("SUPABASE_KEY").expect("SUPABASE_KEY must be set"),
+    )
+    .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+
+    let link = supabase::Link {
+        id: uuid::Uuid::new_v4().to_string(),
+        url: payload.url,
+        description: payload.description,
+        created_at: Utc::now().to_rfc3339(),
+        title: payload.title,
+        icon: None,
+        order_index: payload.next_order_index,
+        owner_type: payload.owner_type,
+        owner_id: payload.owner_id,
+        column_type: payload.column_type,
+    };
+
+    if let Err(e) = supabase.create_link(link).await {
+        println!("Error creating link: {:?}", e);
+        return Err(StatusCode::INTERNAL_SERVER_ERROR);
+    }
+
+    Ok(Json(CreateLinkResponse {
+        message: "Link created successfully".to_string(),
+    }))
+}
+
+async fn update_link(
+    Path(link_id): Path<String>,
+    Json(payload): Json<UpdateLinkRequest>,
+) -> Result<Json<UpdateLinkResponse>, StatusCode> {
+    let supabase = Supabase::new(
+        std::env::var("SUPABASE_URL").expect("SUPABASE_URL must be set"),
+        std::env::var("SUPABASE_KEY").expect("SUPABASE_KEY must be set"),
+    )
+    .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+
+    let mut updates = HashMap::new();
+    if let Some(url) = payload.url {
+        updates.insert("url".to_string(), json!(url));
+    }
+    if let Some(description) = payload.description {
+        updates.insert("description".to_string(), json!(description));
+    }
+    if let Some(title) = payload.title {
+        updates.insert("title".to_string(), json!(title));
+    }
+    if let Some(icon) = payload.icon {
+        updates.insert("icon".to_string(), json!(icon));
+    }
+    if let Some(icon) = payload.column_type {
+        updates.insert("column_type".to_string(), json!(icon));
+    }
+
+    if let Err(e) = supabase.update_link(&link_id, updates).await {
+        println!("Error updating link: {:?}", e);
+        return Err(StatusCode::INTERNAL_SERVER_ERROR);
+    }
+
+    Ok(Json(UpdateLinkResponse {
+        message: "Link updated successfully".to_string(),
+    }))
+}
+
+async fn delete_link(Path(link_id): Path<String>) -> Result<StatusCode, StatusCode> {
+    let supabase = Supabase::new(
+        std::env::var("SUPABASE_URL").expect("SUPABASE_URL must be set"),
+        std::env::var("SUPABASE_KEY").expect("SUPABASE_KEY must be set"),
+    )
+    .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+
+    if let Err(e) = supabase.delete_link(&link_id).await {
+        println!("Error deleting link: {:?}", e);
+        return Err(StatusCode::INTERNAL_SERVER_ERROR);
+    }
+
+    Ok(StatusCode::NO_CONTENT)
 }
 
 async fn plan_handler(Path(plan_id): Path<String>) -> Result<Json<supabase::Plan>, StatusCode> {

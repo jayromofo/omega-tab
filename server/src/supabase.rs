@@ -149,7 +149,7 @@ impl Supabase {
     }
 
     pub async fn create_user(&self, user:User) -> Result<User> {
-        
+
         println!("Creating user with payload: {:?}", user);
 
         let response = self
@@ -305,7 +305,7 @@ impl Supabase {
             .headers(self.build_headers()?)
             .send()
             .await?;
-    
+
         if response.status().is_success() {
             let links: Vec<Link> = response.json().await?;
             Ok(links)
@@ -314,33 +314,11 @@ impl Supabase {
         }
     }
 
-    // todo - not using this yet, BUT, looks like link 
-    // creation on client-side got a bit messed up and 
+    // todo - not using this yet, BUT, looks like link
+    // creation on client-side got a bit messed up and
     // evanr@fdm4 got a bunch of evan.roberton's links
     // so that's something to watch out for.
-    pub async fn create_link(
-        &self,
-        title: &str,
-        description: &str,
-        icon: &str,
-        order_index: i32,
-        url: &str,
-        owner_type: &str,
-        owner_id: &str,
-        column_type: &str,
-    ) -> Result<Link> {
-        let link: Link = Link {
-            id: uuid::Uuid::new_v4().to_string(),
-            title: title.to_string(),
-            url: url.to_string(),
-            icon: Some(icon.to_string()),
-            order_index: order_index,
-            owner_type: owner_type.to_string(),
-            owner_id: owner_id.to_string(),
-            created_at: chrono::Utc::now().to_rfc3339(),
-            description: Some(description.to_string()),
-            column_type: column_type.to_string(),
-        };
+    pub async fn create_link(&self,link:Link) -> Result<Link> {
 
         println!("Creating link with payload: {:?}", link);
 

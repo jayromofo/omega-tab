@@ -51,7 +51,7 @@
 
 <script setup lang="ts">
 import { ref, watch } from 'vue';
-import { linkUtils } from '@/composables/useDatabase';
+import {useApi} from '@/composables/useApi';
 import type { Tables } from '../types/Database';
 type Link = Tables<'links'>;
 
@@ -124,10 +124,15 @@ const handleSubmit = async () => {
     try {
         isLoading.value = true;
         // todo switch to backend call
-        const updatedLink = await linkUtils.updateLink(props.link.id, {
-            url: formData.value.url,
-            title: formData.value.title || new URL(formData.value.url).hostname,
-            description: formData.value.description,
+        const { api } = useApi();
+        const updatedLink = await api('/link', {
+            method: 'POST',
+            body: JSON.stringify({
+                id: props.link.id,
+                url: formData.value.url,
+                title: formData.value.title || new URL(formData.value.url).hostname,
+                description: formData.value.description,
+            })
         });
 
         if (updatedLink) {
