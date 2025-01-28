@@ -28,7 +28,7 @@ pub struct Organization {
     pub owner_id: String,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct Link {
     pub id: String,
     pub title: String,
@@ -314,6 +314,21 @@ impl Supabase {
         }
     }
 
+    pub async fn get_link(&self, id: &str, owner_id: &str) -> Result<Link> {
+        let response = self
+            .client
+            .get(format!(
+                "{}/rest/v1/links?id=eq.{}&owner_id=eq.{}",
+                self.url, id, owner_id
+            ))
+            .headers(self.build_headers()?)
+            .send()
+            .await?;
+
+        let mut links: Vec<Link> = response.json().await?;
+        links.pop().ok_or_else(|| anyhow::anyhow!("Link not found"))
+    }
+
     // todo - not using this yet, BUT, looks like link
     // creation on client-side got a bit messed up and
     // evanr@fdm4 got a bunch of evan.roberton's links
@@ -342,7 +357,7 @@ impl Supabase {
         &self,
         id: &str,
         updates: HashMap<String, serde_json::Value>,
-    ) -> Result<Link> {
+    ) -> Result<()> {
         let response = self
             .client
             .patch(format!("{}/rest/v1/links?id=eq.{}", self.url, id))
@@ -351,7 +366,12 @@ impl Supabase {
             .send()
             .await?;
 
-        Ok(response.json().await?)
+        if !response.status().is_success() {
+            let error_text = response.text().await?;
+            return Err(anyhow::anyhow!("Failed to create link: {}", error_text));
+        }
+
+        Ok(())
     }
 
     pub async fn delete_link(&self, id: &str) -> Result<()> {

@@ -4,7 +4,7 @@ mod supabase;
 use axum::{
     extract::{Json, Path},
     http::StatusCode,
-    routing::{get, post, put, delete},
+    routing::{get, post, delete},
     Router,
 };
 use chrono::{TimeZone, Utc};
@@ -56,11 +56,13 @@ pub struct CreateLinkRequest {
 
 #[derive(Serialize)]
 pub struct CreateLinkResponse {
+    link: supabase::Link,
     message: String,
 }
 
 #[derive(Deserialize)]
 pub struct UpdateLinkRequest {
+    id: String,
     url: Option<String>,
     description: Option<String>,
     title: Option<String>,
@@ -83,17 +85,21 @@ async fn main() {
         .allow_headers(Any);
 
     let app = Router::new()
-        .route("/hello", get(hello_handler))
+
+        // confirm subscription
         .route("/confirm", post(confirm_handler))
-        // get links
-        .route("/links/{user_id}", get(move |path| links_handler(path)))
-        // create links
-        .route("/link", post(create_link))
-        // update link
-        .route("/link/{link_id}", put(update_link))
+
+        // create and update links
+        .route("/link", post(create_link).put(update_link))
+        // read links
+        .route("/user/{user_id}/links", get(move |path| links_handler(path)))
         // delete link
-        .route("/link/{link_id}", delete(delete_link))
+        .route("/link/{link_id}", delete(move |path| delete_link(path)))
+
+        // get plan
         .route("/plan/{plan_id}", get(move |path| plan_handler(path)))
+
+        // create user
         .route("/create_user", post(create_user_handler))
         .layer(cors);
 
@@ -101,10 +107,6 @@ async fn main() {
     println!("Server running on http://0.0.0.0:3000");
 
     axum::serve(listener, app).await.unwrap();
-}
-
-async fn hello_handler() -> &'static str {
-    "hello!"
 }
 
 async fn create_user_handler(
@@ -373,18 +375,18 @@ async fn create_link(
         column_type: payload.column_type,
     };
 
-    if let Err(e) = supabase.create_link(link).await {
+    if let Err(e) = supabase.create_link(link.clone()).await {
         println!("Error creating link: {:?}", e);
         return Err(StatusCode::INTERNAL_SERVER_ERROR);
     }
 
     Ok(Json(CreateLinkResponse {
+        link: link,
         message: "Link created successfully".to_string(),
     }))
 }
 
 async fn update_link(
-    Path(link_id): Path<String>,
     Json(payload): Json<UpdateLinkRequest>,
 ) -> Result<Json<UpdateLinkResponse>, StatusCode> {
     let supabase = Supabase::new(
@@ -410,7 +412,7 @@ async fn update_link(
         updates.insert("column_type".to_string(), json!(icon));
     }
 
-    if let Err(e) = supabase.update_link(&link_id, updates).await {
+    if let Err(e) = supabase.update_link(&payload.id, updates).await {
         println!("Error updating link: {:?}", e);
         return Err(StatusCode::INTERNAL_SERVER_ERROR);
     }

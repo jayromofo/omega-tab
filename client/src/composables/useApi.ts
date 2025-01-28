@@ -24,7 +24,10 @@ export function useApi() {
         throw new Error(`HTTP error! status: ${response.status}`)
       }
 
-      return await response.json()
+      const text = await response.text();
+
+      return text ? JSON.parse(text) : null;
+
     } catch (e) {
       error.value = e as Error
       throw e

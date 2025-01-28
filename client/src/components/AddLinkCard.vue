@@ -50,7 +50,7 @@
 
 <script setup lang="ts">
     import { ref,computed } from 'vue';
-    import { linkUtils } from '@/composables/useDatabase';
+    import {useApi} from '../composables/useApi';
     import type { Tables } from '../types/Database';
     import {useRouter} from 'vue-router';
     type Link = Tables<'links'>;
@@ -164,8 +164,21 @@
             order_index: props.columnType === 'tools' ? props.tools.length : props.docs.length
         };
 
-        // todo switch to backend call
-        return await linkUtils.createLink(link);
+        const { api } = useApi();
+        const updatedLink: {link: Link, message: string} = await api('/link', {
+            method: 'POST',
+            body: JSON.stringify({
+                url: link.url,
+                title: link.title || new URL(formData.value.url).hostname,
+                description: link.description,
+                next_order_index: link.order_index,
+                owner_id: link.owner_id,
+                owner_type: link.owner_type,
+                column_type: link.column_type
+            })
+        });
+
+        return updatedLink.link;
     };
 
     const handleSubmit = async () => {

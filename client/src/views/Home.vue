@@ -26,7 +26,7 @@
       <SearchBar :tools="tools" :docs="docs" />
       <LinkColumns v-if="userPlan" :tools="tools" :docs="docs" :userId="userId" :maxPins="userPlan.max_pins"
         :canAddLinks="canShowAddLink" @tool-added="handleToolAdded" @doc-added="handleDocAdded"
-        :isPlanFree="userPlan.name === 'free'" />
+        @link-deleted="handleDeleteLink" :isPlanFree="userPlan.name === 'free'" />
       <v-dialog v-model="showHelpDialog" max-width="900px">
         <v-card>
           <v-card-title class="headline">Help</v-card-title>
@@ -111,7 +111,7 @@ import type { Tables } from '../types/Database';
 import SearchBar from '../components/SearchBar.vue';
 import LinkColumns from '../components/LinkColumns.vue';
 import LandingPage from '../components/LandingPage.vue';
-import {useUserStore} from '../stores/user';
+import { useUserStore } from '../stores/user';
 
 const userStore = useUserStore()
 
@@ -169,10 +169,29 @@ const canShowAddLink = computed(() => {
 // Event handlers
 const handleToolAdded = (tool: Link) => {
   tools.value.push(tool);
+  tools.value.sort((a, b) => (a.order_index || 0) - (b.order_index || 0));
 };
 
 const handleDocAdded = (doc: Link) => {
   docs.value.push(doc);
+  docs.value.sort((a, b) => (a.order_index || 0) - (b.order_index || 0));
+};
+
+const handleDeleteLink = (type: string, index: number) => {
+  console.log("Deleting link", type, index);
+  if (type === 'tool') {
+    tools.value.splice(index, 1);
+    // Reorder remaining tools
+    tools.value.forEach((tool, idx) => {
+      tool.order_index = idx;
+    });
+  } else {
+    docs.value.splice(index, 1);
+    // Reorder remaining docs
+    docs.value.forEach((doc, idx) => {
+      doc.order_index = idx;
+    });
+  }
 };
 
 const handleShowSignIn = () => {
@@ -194,7 +213,7 @@ const loadUserData = async () => {
 
     const email = clerk.user.emailAddresses[0].emailAddress;
 
-    const createUserResponse: {message:string} = await api('/create_user', {
+    const createUserResponse: { message: string } = await api('/create_user', {
       method: 'POST',
       body: JSON.stringify({
         user_id: clerk.user.id,
@@ -233,7 +252,7 @@ const loadUserData = async () => {
 
 
     // Load user links
-    const linksData = await api(`/links/${clerk.user.id}`);
+    const linksData = await api(`/user/${clerk.user.id}/links`);
     if (linksData !== undefined) for (const link of linksData) {
       if (link.column_type === 'tools') {
         handleToolAdded(link);

@@ -125,8 +125,8 @@ const handleSubmit = async () => {
         isLoading.value = true;
         // todo switch to backend call
         const { api } = useApi();
-        const updatedLink = await api('/link', {
-            method: 'POST',
+        const response = await api('/link', {
+            method: 'PUT',
             body: JSON.stringify({
                 id: props.link.id,
                 url: formData.value.url,
@@ -134,9 +134,15 @@ const handleSubmit = async () => {
                 description: formData.value.description,
             })
         });
+        const updatedLink = {
+            ...props.link,
+            url: formData.value.url,
+            title: formData.value.title || new URL(formData.value.url).hostname,
+            description: formData.value.description,
+        };
 
         if (updatedLink) {
-            emit('linkUpdated', updatedLink);
+            emit('linkUpdated', updatedLink as Link);
         }
         closeModal();
     } catch (error) {
