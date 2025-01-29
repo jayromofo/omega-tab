@@ -428,7 +428,7 @@ watch(searchQuery, (newQuery) => {
 });
 </script>
 
-<style>
+<style scoped>
   .cols {
     padding: 1rem;
   }
