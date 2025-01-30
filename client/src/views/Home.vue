@@ -288,7 +288,7 @@ onMounted(async () => {
 				lastName: clerk.user.lastName || "",
 				email: clerk.user.emailAddresses[0].emailAddress,
 			}
-			const gotUser = userStore.fetchUserData(clerkUser);
+			const gotUser = await userStore.fetchUserData(clerkUser);
 			if(!gotUser) {
 				throw new Error("Error fetching user data");
 			}
