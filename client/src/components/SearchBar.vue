@@ -5,10 +5,10 @@
 				<v-text-field v-model="searchQuery" :placeholder="placeholder" variant="plain" hide-details
 					@keyup.enter="performSearch" @keydown="handleKeydown" @mouseover="focusedIndex = -1"
 					prepend-inner-icon="mdi-magnify" ref="searchInput" @focus="handleFocus" @blur="handleBlur" />
-				<div v-if="isCSQuery || fuzzyResults.length || (getFilteredHistory.length && searchQuery)"
+				<div v-if="fuzzyResults.length || (getFilteredHistory.length && searchQuery)"
 					class="dropdown-menu">
 					<!-- History Section -->
-					<div v-if="getFilteredHistory.length" class="section-container">
+					<!-- <div v-if="getFilteredHistory.length" class="section-container">
 						<div class="section-header">
 							<span>Recent Searches</span>
 							<v-btn variant="text" density="compact" size="small" @click="clearHistory">
@@ -22,22 +22,8 @@
 							{{ result.item }}
 						</div>
 						<v-divider v-if="fuzzyResults.length || isCSQuery" class="my-2"></v-divider>
-					</div>
-					<!-- CSQuery Section -->
-					<div v-if="isCSQuery">
-						<div class="dropdown-item" :class="{ focused: focusedIndex === 0 }" @mouseover="focusedIndex = 0">
-							<div>Jira Link</div>
-							<a :href="jiraLink" target="_blank">{{ searchQuery }} <v-icon icon="mdi-link" /></a>
-						</div>
-						<!-- Confluence Link Section -->
-						<!-- <div class="dropdown-item" :class="{ focused: focusedIndex === pillLinks.length + 2 }"
-							@mouseover="focusedIndex = pillLinks.length + 2">
-							<div>Search Confluence</div>
-							<a :href="confluenceLink" target="_blank"><v-icon icon="mdi-magnify" />"{{ searchQuery
-								}}"</a>
-						</div> -->
-					</div>
-					<div v-else>
+					</div>					 -->
+					<div>
 						<!-- Tool section -->
 						<div v-for="(result, index) in fuzzyResults" :key="result.item.title" class="dropdown-item"
 							:class="{ focused: focusedIndex === index }" @mouseover="focusedIndex = index">
@@ -80,12 +66,8 @@ import { computed, defineProps, onMounted, onUnmounted, ref, watch } from "vue";
 import type { Link } from "../types/Link";
 import { debounce } from "lodash";
 import { searchEngines } from "../data/SearchEngines";
+import { useLinksStore } from "../stores/links";
 
-// interfaces
-interface Props {
-	tools: Link[];
-	docs: Link[];
-}
 interface HistoryItem {
 	query: string;
 	timestamp: number;
@@ -96,20 +78,19 @@ interface HistoryItem {
 const MAX_STORED_HISTORY = 100; // Maximum number of items to store
 const MAX_DISPLAYED_HISTORY = 5; // Maximum number of items to display
 const STORAGE_KEY = "search_history";
-const props = defineProps<Props>();
+const linksStore = useLinksStore();
 const searchQuery = ref("");
 const searchHistory = ref<string[]>([]);
 const showHistory = ref(false);
 const searchInput = ref<HTMLElement | null>(null);
-
 const selectedEngine = ref(
 	localStorage.getItem("defaultSearchEngine") || searchEngines[0].url,
 );
 const focusedIndex = ref(-1);
 // Fuzzy search setup
-const fuse = new Fuse<Link>([...props.tools, ...props.docs], {
-	keys: ["title", "description"],
-	threshold: 0.3,
+const fuse = new Fuse<Link>(linksStore.links, {
+	keys: ["title", "description", "url"],
+	threshold: 0.1,
 	findAllMatches: false,
 });
 const fuzzyResults = ref<FuseResult<Link>[]>([]);
@@ -138,11 +119,6 @@ const getFilteredHistory = computed(() => {
 		.slice(0, MAX_DISPLAYED_HISTORY);
 });
 
-const isCSQuery = computed(() => {
-	const result = /^(CS|ERP|WMS|RD)-\d{3,6}$/i.test(searchQuery.value);
-	console.log("isCSQuery:", result);
-	return result;
-});
 
 // Replace the isCompleteURI computed property with this optimized version
 const isCompleteURI = computed(() => {
@@ -212,7 +188,7 @@ const loadSearchHistory = () => {
 };
 
 const addToHistory = (query: string) => {
-	if (!query || !query.trim() || isCSQuery.value) return;
+	if (!query || !query.trim()) return;
 
 	try {
 		const stored = localStorage.getItem(STORAGE_KEY);
@@ -251,10 +227,15 @@ const clearHistory = (query: string) => {
 // Modify your existing performSearch function
 const performSearch = () => {
 	if (searchQuery.value.trim()) {
-		const searchUrl =
-			selectedEngine.value + encodeURIComponent(searchQuery.value);
-		window.open(searchUrl, "_blank");
-		addToHistory(searchQuery.value); // Add this line
+		// If there are fuzzy results, open the first result's URL
+		if (fuzzyResults.value.length > 0) {
+			window.open(fuzzyResults.value[0].item.url, "_blank");
+		} else {
+			// Otherwise perform normal search
+			const searchUrl = selectedEngine.value + encodeURIComponent(searchQuery.value);
+			window.open(searchUrl, "_blank");
+		}
+		addToHistory(searchQuery.value);
 		searchQuery.value = "";
 	}
 };
@@ -366,7 +347,7 @@ const debouncedFuzzySearch = debounce((query: string) => {
 	} else {
 		fuzzyResults.value = [];
 	}
-}, 100); // 100ms delay
+}, 10); // 100ms delay
 
 // Add event listener for ctrl+arrow keys to cycle through search engines
 const handleSearchEngineHotkeys = (event: KeyboardEvent) => {
@@ -388,7 +369,7 @@ const handleSearchEngineHotkeys = (event: KeyboardEvent) => {
 
 // watch, mount, and unmount
 watch(searchQuery, (newQuery) => {
-	if (!isCSQuery.value && !isCompleteURI.value) {
+	if (!isCompleteURI.value) {
 		debouncedFuzzySearch(newQuery);
 	} else {
 		fuzzyResults.value = [];
