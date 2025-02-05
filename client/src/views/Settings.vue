@@ -158,7 +158,7 @@
               <div class="text-body-1">{{ userPlan?.max_pins || 6 }} pins included</div>
             </v-card-text>
             <v-card-actions>
-              <v-btn v-if="userPlan?.name === 'free'" variant="elevated" color="primary" @click="router.push('/plans')">Change Plan</v-btn>
+              <v-btn v-if="userPlan?.name === 'free'" variant="elevated" color="primary" @click="router.push('/plans')">Upgrade Plan</v-btn>
               <v-btn v-if="userPlan?.name !== 'free'" variant="elevated" color="red" @click="showCancelDialog=true">Cancel Plan</v-btn>
             </v-card-actions>
           </v-card-item>
