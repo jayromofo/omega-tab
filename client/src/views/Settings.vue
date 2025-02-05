@@ -152,14 +152,28 @@
         <h2 class="text-2xl font-bold mb-6">Billing & Subscription</h2>
         <v-card class="mb-6">
           <v-card-item>
-            <v-card-title>Current Plan</v-card-title>
-            <v-card-text>
-              <div class="text-h4 mb-2">{{ userPlan?.name || 'Free' }}</div>
+            <v-card-title class="mb-2">Current Plan</v-card-title>
+            <v-card-text class="border border-gray-200 rounded-lg !p-2">
+              <div class="text-h4 mb-2">{{ userPlan?.name === 'plus' ? 'Plus+' : userPlan?.name || 'Free' }}</div>
               <div class="text-body-1">{{ userPlan?.max_pins || 6 }} pins included</div>
             </v-card-text>
             <v-card-actions>
-              <v-btn v-if="userPlan?.name === 'free'" variant="elevated" color="primary" @click="router.push('/plans')">Upgrade Plan</v-btn>
-              <v-btn v-if="userPlan?.name !== 'free'" variant="elevated" color="red" @click="showCancelDialog=true">Cancel Plan</v-btn>
+              <v-btn v-if="userPlan?.name === 'free'" variant="elevated" color="primary"
+                @click="router.push('/plans')">Upgrade Plan</v-btn>
+              <v-btn v-if="userPlan?.name !== 'free'" variant="elevated" color="red"
+                @click="showCancelDialog = true">Cancel
+                Plan</v-btn>
+              <v-btn @click="showPaymentTooltip = !showPaymentTooltip">
+                <v-icon size="x-large" icon="mdi-help-circle-outline" color="primary" />
+                <v-tooltip v-model="showPaymentTooltip" location="bottom">
+                  If you need to change your payment information either:<br/>
+                  <ol class="list-decimal list-inside">
+                    <li>Cancel your subscription and wait for the current term to end and re-subscribe</li>
+                    <li>Contact Support as evan.robertson77@gmail.com</li>
+                  </ol>                
+                  <strong>Improved payment management will be coming soon.</strong>
+                </v-tooltip>
+              </v-btn>
             </v-card-actions>
           </v-card-item>
         </v-card>
@@ -167,7 +181,10 @@
           <v-card>
             <v-card-title>Cancel Subscription</v-card-title>
             <v-card-text>
-              Are you sure you want to cancel your subscription? You will have access to your plus features until the end of your current billing period.
+              Are you sure you want to cancel your subscription? 
+              <br/><br/>You will have access to your subscription features until the
+              end of
+              the current billing period.
             </v-card-text>
             <v-card-actions>
               <v-spacer></v-spacer>
@@ -247,6 +264,7 @@
   const showInviteModal = ref(false);
   const selectedTeamId = ref("");
   const memberSearch = ref("");
+  const showPaymentTooltip = ref(false);
 
   // Team management data
   const teamForm = ref({
