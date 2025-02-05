@@ -4,10 +4,12 @@
 			<v-container>
 				<v-row>
 					<v-col>
-						<input v-model="searchQuery" :placeholder="placeholder" type="search"
-							@keyup.enter="performSearch" @keydown="handleKeydown" @mouseover="focusedIndex = -1"
-							ref="searchInput" @focus="handleFocus" @blur="handleBlur"
-							class="focus:outline-none focus:ring-0 focus-visible:ring-0 focus-visible:outline-none searchBar mt-0" />
+						<textarea v-model="searchQuery" :placeholder="placeholder" @keyup.enter="performSearch"
+							@keydown="handleKeydown" @mouseover="focusedIndex = -1" ref="searchInput"
+							@focus="handleFocus" @blur="handleBlur"
+							class="overflow-auto focus:outline-none focus:ring-0 focus-visible:ring-0 focus-visible:outline-none searchBar mt-0 resize-none" 
+							:style="{ height: textareaHeight + 'px' }"
+							/>
 					</v-col>
 				</v-row>
 				<v-row>
@@ -38,23 +40,23 @@
 								</v-select>
 							</v-col>
 							<v-col cols="3" class="flex justify-end items-end">
-								<v-btn icon="mdi-magnify" @click="performSearch">
+								<v-btn icon="mdi-arrow-right" @click="performSearch">
 								</v-btn>
 							</v-col>
 						</v-row>
 					</v-col>
 				</v-row>
 				<div v-if="fuzzyResults.length || (getFilteredHistory.length && searchQuery)" class="dropdown-menu">
-				<div>
-					<!-- Tool section -->
-					<div v-for="(result, index) in fuzzyResults" :key="result.item.title" class="dropdown-item"
-						:class="{ focused: focusedIndex === index }" @mouseover="focusedIndex = index">
-						<div>{{ result.item.title }}</div>
-						<a :href="result.item.url" target="_blank">{{ result.item.description }} <v-icon
-								icon="mdi-link" /></a>
+					<div>
+						<!-- Tool section -->
+						<div v-for="(result, index) in fuzzyResults" :key="result.item.title" class="dropdown-item"
+							:class="{ focused: focusedIndex === index }" @mouseover="focusedIndex = index">
+							<div>{{ result.item.title }}</div>
+							<a :href="result.item.url" target="_blank">{{ result.item.description }} <v-icon
+									icon="mdi-link" /></a>
+						</div>
 					</div>
 				</div>
-			</div>
 			</v-container>
 		</div>
 	</div>
@@ -92,13 +94,10 @@
 	);
 	const focusedIndex = ref(-1);
 	const fuseInstance = ref<Fuse<Link> | null>(null);
+	const textareaHeight = ref(50);
+	const maxHeight = 300;
 
 	// Fuzzy search setup
-	const fuse = new Fuse<Link>(links.value, {
-		keys: ["title", "description", "url"],
-		threshold: 0.1,
-		findAllMatches: false,
-	});
 	const fuzzyResults = ref<FuseResult<Link>[]>([]);
 
 	// computed properties
@@ -118,12 +117,21 @@
 	}
 
 	watch(links, (newData) => {
-		console.log("links", links);
-		console.log("newData", newData);
 		if (newData?.length) {
-    		initializeFuse(newData);
-  		}
+			initializeFuse(newData);
+		}
 	}, { immediate: true });
+
+	// Method to adjust height
+	const adjustHeight = () => {
+		const textarea = searchInput.value;
+		if (!textarea) return;
+
+		textarea.style.height = 'auto';
+		const newHeight = Math.min(maxHeight, Math.max(50, textarea.scrollHeight));
+		textarea.style.height = `${newHeight}px`;
+		textareaHeight.value = newHeight;
+	};
 
 	// Add function to get filtered history results
 	const getFilteredHistory = computed(() => {
@@ -153,12 +161,12 @@
 			return false;
 		}
 
-		if(validateUrl(searchQuery.value)) {
+		if (validateUrl(searchQuery.value)) {
 			return true;
-		} 
+		}
 
 		return false;
-		
+
 	});
 
 	const jiraLink = computed(
@@ -363,7 +371,7 @@
 
 	// Create a debounced search function
 	const debouncedFuzzySearch = debounce(async (query: string) => {
-		if(!fuseInstance.value || !query.trim()) {
+		if (!fuseInstance.value || !query.trim()) {
 			fuzzyResults.value = [];
 			return;
 		}
@@ -405,6 +413,17 @@
 		window.addEventListener('keydown', handleSearchEngineHotkeys);
 	});
 
+	watch(searchQuery, (newQuery) => {
+		// Run height adjustment when text changes
+		adjustHeight();
+		
+		// Existing fuzzy search logic
+		if (!isCompleteURI.value) {
+			debouncedFuzzySearch(newQuery);
+		} else {
+			fuzzyResults.value = [];
+		}
+	});
 
 	onUnmounted(() => {
 		window.removeEventListener('keydown', handleSearchEngineHotkeys);
