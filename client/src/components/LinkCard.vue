@@ -27,12 +27,50 @@
         console.error("Failed to copy: ", err);
       });
   };
+
+  const isIconDark = (iconUrl: string): Promise<boolean> => {
+    if (iconUrl.includes("svg+xml")) {
+      return new Promise((resolve) => resolve(false));
+    }
+    return new Promise((resolve) => {
+      const img = new Image();
+      img.crossOrigin = "Anonymous";
+      img.src = iconUrl;
+      img.onload = () => {
+        const canvas = document.createElement("canvas");
+        const ctx = canvas.getContext("2d");
+        if (!ctx) return resolve(false);
+        canvas.width = img.width;
+        canvas.height = img.height;
+        ctx.drawImage(img, 0, 0, img.width, img.height);
+        const imageData = ctx.getImageData(0, 0, img.width, img.height);
+        let totalBrightness = 0;
+        for (let i = 0; i < imageData.data.length; i += 4) {
+          const r = imageData.data[i];
+          const g = imageData.data[i + 1];
+          const b = imageData.data[i + 2];
+          totalBrightness += (r + g + b) / 3;
+        }
+        const avgBrightness = totalBrightness / (imageData.data.length / 4);
+        resolve(avgBrightness < 128);
+      };
+      img.onerror = () => resolve(false);
+    });
+  };
+
+  const iconBackground = ref("");
+
+  if (props.icon && !isMdiIcon.value) {
+    isIconDark(props.icon).then((isDark) => {
+      iconBackground.value = isDark ? "lightgrey" : "";
+    });
+  }
 </script>
 
 <template>
   <v-card :href="link" target="_blank" variant="tonal" class="tool-link pa-4 mb-2 d-flex align-center" :ripple="false">
     <div class="d-flex align-center flex-grow-1">
-      <div v-if="icon !== ''">
+      <div v-if="icon !== ''" :style="{ backgroundColor: iconBackground }">
         <v-icon v-if="isMdiIcon" :icon="icon" size="36" class="mr-4" color="primary" />
         <img v-else :src="icon" alt="" class="custom-icon mr-4" />
       </div>
