@@ -170,7 +170,7 @@
                   <ol class="list-decimal list-inside">
                     <li>Cancel your subscription and wait for the current term to end and re-subscribe</li>
                     <li>Contact Support as evan.robertson77@gmail.com</li>
-                  </ol>                
+                  </ol>
                   <strong>Improved payment management will be coming soon.</strong>
                 </v-tooltip>
               </v-btn>
@@ -181,7 +181,7 @@
           <v-card>
             <v-card-title>Cancel Subscription</v-card-title>
             <v-card-text>
-              Are you sure you want to cancel your subscription? 
+              Are you sure you want to cancel your subscription?
               <br/><br/>You will have access to your subscription features until the
               end of
               the current billing period.
@@ -231,6 +231,9 @@
         </v-card-actions>
       </v-card>
     </v-dialog>
+
+    <!-- Feedback Form -->
+    <Feedback v-model="showFeedbackDialog" />
   </div>
 </template>
 
@@ -240,6 +243,7 @@
   import { useUserStore } from "../stores/user";
   import type { Features } from "../types/Features";
   import { API } from "../constants/api";
+  import Feedback from "../components/Feedback.vue";
 
   // In Settings.vue setup
   const userStore = useUserStore();
@@ -265,6 +269,7 @@
   const selectedTeamId = ref("");
   const memberSearch = ref("");
   const showPaymentTooltip = ref(false);
+  const showFeedbackDialog = ref(false);
 
   // Team management data
   const teamForm = ref({
@@ -398,7 +403,9 @@
   };
 
   const cancelSubHandler = async () => {
+    showFeedbackDialog.value = true;
     showCancelDialog.value = false;
+    return;
     if (!userStore.userId) {
       throw new Error("User ID not found");
     }

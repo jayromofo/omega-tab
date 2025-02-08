@@ -65,13 +65,13 @@ pub struct SuggestionResponse {
     suggestions: Vec<brave::Suggestion>,
 }
 
-fn main() {    
+fn main() {
 
     let _guard = sentry::init(("https://dacfc75c4bbf7f8a70134067d078c21a@o4508773394153472.ingest.us.sentry.io/4508773395857408", sentry::ClientOptions {
         release: sentry::release_name!(),
 
         // 1.0 is send 100% of traces to Sentry, 0.2 is 20%, etc.
-        traces_sample_rate: 1.0,
+        traces_sample_rate: 0.2,
 
         ..sentry::ClientOptions::default()
     }));
@@ -210,7 +210,7 @@ async fn confirm_handler(
     sentry::configure_scope(|scope| {
         scope.set_user(Some(sentry::User {
             email: Some(user_email.clone()),
-            id: Some(user_id.clone()),            
+            id: Some(user_id.clone()),
             ..Default::default()
         }));
         scope.set_tag("http.method", "GET");
