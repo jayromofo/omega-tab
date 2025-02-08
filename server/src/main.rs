@@ -21,6 +21,7 @@ use stripe_client::StripeClient;
 use supabase::Supabase;
 use tower_http::cors::{Any, CorsLayer};
 use tracing_subscriber::prelude::*;
+use base64::prelude::*;
 
 #[derive(Serialize)]
 pub struct SubscriptionResponse {
@@ -55,7 +56,7 @@ pub struct UpdateLinkRequest {
     column_type: Option<String>,
 }
 
-#[derive(Deserialize, Clone, Debug)]
+#[derive(Deserialize, Serialize, Clone, Debug)]
 pub struct Metadata {
     title: Option<String>,
     description: Option<String>,
@@ -743,7 +744,35 @@ async fn get_metadata(url: &str) -> Result<Metadata, StatusCode> {
         .and_then(|d| d.value().attr("content"))
         .map(|d| d.to_string());
 
-    let favicon = Some(format!("{}/favicon.ico", url.trim_end_matches('/')));
+    let favicon_urls = vec![
+        format!("{}/favicon.ico", url.trim_end_matches('/')),
+        format!("{}/images/favicon.ico", url.trim_end_matches('/')),
+        format!("{}/assets/favicon.ico", url.trim_end_matches('/')),
+        format!("{}/static/favicon.ico", url.trim_end_matches('/')),
+        format!("{}/public/favicon.ico", url.trim_end_matches('/')),
+        format!("{}/icon/favicon.ico", url.trim_end_matches('/')),
+        format!("{}/icons/favicon.ico", url.trim_end_matches('/')),
+        format!("{}/icon.svg", url.trim_end_matches('/')),
+        format!("{}/favicon-32x32.png", url.trim_end_matches('/')),
+    ];
+
+    let mut favicon: Option<String> = None;
+
+    // todo this block throws an error for some reason.
+    // for favicon_url in favicon_urls {
+    //     if let Ok(favicon_response) = client.get(&favicon_url).send().await {
+    //         if favicon_response.status().is_success() {
+    //             if let Ok(favicon_bytes) = favicon_response.bytes().await {
+    //                 favicon = Some(BASE64_STANDARD.encode(favicon_bytes));
+    //                 break;
+    //             }
+    //         }
+    //     }
+    // }
+
+    if favicon.is_none() {
+        favicon = Some("".to_string());
+    }
 
     Ok(Metadata {
         title,

@@ -201,6 +201,7 @@ dependencies = [
  "anyhow",
  "async-stripe",
  "axum",
+ "base64 0.22.1",
  "chrono",
  "dotenv",
  "reqwest",
