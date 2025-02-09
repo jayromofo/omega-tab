@@ -75,6 +75,16 @@ pub struct FeedbackRequest {
     feedback_comment: Option<String>,
 }
 
+#[derive(Deserialize, Serialize, Clone, Debug)]
+pub struct UserSettingsRequest {
+    search_history: bool,
+    autosuggest: bool,
+    jira_api: bool,
+    confluence_api: bool,
+    linear_api: bool,
+    new_tabs: bool,
+}
+
 fn main() {
     let _guard = sentry::init(("https://dacfc75c4bbf7f8a70134067d078c21a@o4508773394153472.ingest.us.sentry.io/4508773395857408", sentry::ClientOptions {
         release: sentry::release_name!(),
@@ -140,6 +150,7 @@ async fn runtime() {
         // get suggestion
         .route("/suggest/{query}", get(move |path| suggest_handler(path)))
         .route("/feedback/{user_id}/{user_email}", post(feedback_handler))
+        .route("/settings/{user_id}", post(create_settings).put(update_settings).get(get_settings))
         .with_state(client)
         .layer(cors);
 
@@ -926,4 +937,78 @@ async fn feedback_handler(
         })?;
 
     Ok(StatusCode::OK)
+}
+
+async fn create_settings(
+    Path(user_id): Path<String>,
+    Json(payload): Json<UserSettingsRequest>,
+) -> Result<StatusCode, StatusCode> {
+
+    println!("Creating settings for user: {}", user_id);
+    println!("Payload: {:?}", payload);
+
+    let supabase = Supabase::new(
+        std::env::var("SUPABASE_URL").expect("SUPABASE_URL must be set"),
+        std::env::var("SUPABASE_KEY").expect("SUPABASE_KEY must be set"),
+    )
+    .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+
+    let settings = supabase::UserSettings {
+        user_id: user_id.clone(),
+        settings_blob: json!(payload),
+        created_at: Utc::now().to_rfc3339(),
+    };
+
+    if let Err(e) = supabase.create_user_settings(settings).await {
+        println!("Error creating user settings: {:?}", e);
+        return Err(StatusCode::INTERNAL_SERVER_ERROR);
+    }
+
+    Ok(StatusCode::CREATED)
+}
+
+async fn update_settings(
+    Path(user_id): Path<String>,
+    Json(payload): Json<UserSettingsRequest>,
+) -> Result<StatusCode, StatusCode> {
+    println!("Updating settings for user: {}", user_id);
+    println!("Payload: {:?}", payload);
+
+    let supabase = Supabase::new(
+        std::env::var("SUPABASE_URL").expect("SUPABASE_URL must be set"),
+        std::env::var("SUPABASE_KEY").expect("SUPABASE_KEY must be set"),
+    )
+    .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+
+    let mut updates = HashMap::new();
+    updates.insert("settings_blob".to_string(), json!(payload));
+
+    if let Err(e) = supabase.update_user_settings(&user_id, updates).await {
+        println!("Error updating user settings: {:?}", e);
+        return Err(StatusCode::INTERNAL_SERVER_ERROR);
+    }
+
+    Ok(StatusCode::OK)
+}
+
+async fn get_settings(
+    Path(user_id): Path<String>
+) -> Result<Json<supabase::UserSettings>, StatusCode> {
+    println!("Getting settings for user: {}", user_id);
+
+    let supabase = Supabase::new(
+        std::env::var("SUPABASE_URL").expect("SUPABASE_URL must be set"),
+        std::env::var("SUPABASE_KEY").expect("SUPABASE_KEY must be set"),
+    )
+    .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+
+    let settings = supabase
+        .get_user_settings(&user_id)
+        .await
+        .map_err(|e| match e.to_string().as_str() {
+            "404" => StatusCode::NOT_FOUND,
+            _ => StatusCode::INTERNAL_SERVER_ERROR,
+        })?;
+
+    Ok(Json(settings))
 }

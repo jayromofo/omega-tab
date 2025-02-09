@@ -1,6 +1,7 @@
 <!-- ToolLink.vue -->
 <script setup lang="ts">
   import { computed, defineProps, ref } from "vue";
+  import { useUserSettingsStore } from "../stores/settings";
 
   interface Props {
     icon?: string;
@@ -13,6 +14,7 @@
     onEdit: () => void;
   }
 
+  const settingsStore = useUserSettingsStore();
   const props = defineProps<Props>();
   const isMdiIcon = computed(() => props.icon?.startsWith("mdi-"));
   const snackbar = ref(false);
@@ -73,7 +75,7 @@ if (props.icon && !isMdiIcon.value) {
   <div>
   <v-card
       :href="link"
-      target="_blank"
+      :target="settingsStore.settings.new_tabs ? '_blank' : '_self'"
       variant="tonal"
       class="tool-link pa-4 mb-2 d-flex align-center"
       :ripple="false"

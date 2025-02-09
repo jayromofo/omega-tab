@@ -73,6 +73,13 @@ pub struct UserMembership {
     pub created_at: String,
 }
 
+#[derive(Debug, Serialize, Deserialize)]
+pub struct UserSettings {
+    pub user_id: String,
+    pub settings_blob: serde_json::Value,
+    pub created_at: String,
+}
+
 pub struct Supabase {
     client: Client,
     url: String,
@@ -677,5 +684,75 @@ impl Supabase {
             .await?;
 
         Ok(true)
+    }
+
+    // User Settings
+    pub async fn get_user_settings(&self, user_id: &str) -> Result<UserSettings> {
+        let response = self
+            .client
+            .get(format!("{}/rest/v1/user_settings?user_id=eq.{}", self.url, user_id))
+            .headers(self.build_headers()?)
+            .send()
+            .await?;
+
+        let mut settings: Vec<UserSettings> = response.json().await?;
+        settings.pop().ok_or_else(|| anyhow::anyhow!("404"))
+    }
+
+    pub async fn create_user_settings(&self, user_settings: UserSettings) -> Result<UserSettings> {
+        let response = self
+            .client
+            .post(format!("{}/rest/v1/user_settings", self.url))
+            .headers(self.build_headers()?)
+            .json(&user_settings)
+            .send()
+            .await?;
+
+        if !response.status().is_success() {
+            let error_text = response.text().await?;
+            return Err(anyhow::anyhow!("500"));
+        }
+
+        Ok(user_settings)
+    }
+
+    pub async fn update_user_settings(
+        &self,
+        user_id: &str,
+        updates: HashMap<String, serde_json::Value>,
+    ) -> Result<()> {
+        let response = self
+            .client
+            .patch(format!("{}/rest/v1/user_settings?user_id=eq.{}", self.url, user_id))
+            .headers(self.build_headers()?)
+            .json(&updates)
+            .send()
+            .await?;
+
+        if !response.status().is_success() {
+            let error_text = response.text().await?;
+            return Err(anyhow::anyhow!("Failed to update user settings: {}", error_text));
+        }
+
+        if response.status() == reqwest::StatusCode::NO_CONTENT {
+            let user_settings = UserSettings {
+            user_id: user_id.to_string(),
+            settings_blob: updates.get("settings_blob").unwrap().clone(),
+            created_at: chrono::Utc::now().to_rfc3339(),
+            };
+            self.create_user_settings(user_settings).await?;
+        }
+
+        Ok(())
+    }
+
+    pub async fn delete_user_settings(&self, user_id: &str) -> Result<()> {
+        self.client
+            .delete(format!("{}/rest/v1/user_settings?user_id=eq.{}", self.url, user_id))
+            .headers(self.build_headers()?)
+            .send()
+            .await?;
+
+        Ok(())
     }
 }

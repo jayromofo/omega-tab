@@ -1,5 +1,6 @@
 <template>
 	<div class="mt-16 mx-16">
+		{{ settingsStore.settings.new_tabs }}
 		<div class="searchBarContainer">
 			<v-container>
 				<v-row>
@@ -89,6 +90,7 @@ import type { Suggestions, SuggestionsResponse } from "@/types/Suggestion";
 import { debounce } from "lodash";
 import { searchEngines } from "../data/SearchEngines";
 import { useLinksStore } from "../stores/links";
+import { useUserSettingsStore } from "../stores/settings";
 import { storeToRefs } from "pinia";
 import { API } from "../constants/api";
 const AUTO_SUGGEST_ON = import.meta.env.VITE_AUTO_SUGGEST_ON === 'true';
@@ -103,8 +105,11 @@ interface HistoryItem {
 const MAX_STORED_HISTORY = 100; // Maximum number of items to store
 const MAX_DISPLAYED_HISTORY = 5; // Maximum number of items to display
 const STORAGE_KEY = "search_history";
+
 const linksStore = useLinksStore();
+const settingsStore = useUserSettingsStore();
 const { links } = storeToRefs(linksStore)
+
 const searchQuery = ref("");
 const searchHistory = ref<string[]>([]);
 const showHistory = ref(false);
@@ -269,16 +274,27 @@ const clearHistory = (query: string) => {
 	localStorage.removeItem(STORAGE_KEY);
 };
 
+// New function to handle opening URLs
+const openUrl = (url: string) => {
+	if (settingsStore.settings.new_tabs) {
+		console.log("Opening in new tab:", url);
+		window.open(url, "_blank");
+	} else {
+		console.log("Opening in same tab:", url);
+		window.location.href = url;
+	}
+};
+
 // Modify your existing performSearch function
 const performSearch = () => {
 	if (searchQuery.value.trim()) {
 		// If there are fuzzy results, open the first result's URL
 		if (fuzzyResults.value.length > 0) {
-			window.location.href = fuzzyResults.value[0].item.url;
+			openUrl(fuzzyResults.value[0].item.url);
 		} else {
 			// Otherwise perform normal search
 			const searchUrl = selectedEngine.value + encodeURIComponent(searchQuery.value);
-			window.location.href = searchUrl;
+			openUrl(searchUrl);
 		}
 		addToHistory(searchQuery.value);
 		searchQuery.value = "";
@@ -337,7 +353,7 @@ const handleKeydown = (event: KeyboardEvent) => {
 					else {
 						// Handle fuzzy result selection
 						const fuzzyIndex = focusedIndex.value - historyLength;
-						window.location.href = fuzzyResults.value[fuzzyIndex].item.url;
+						openUrl(fuzzyResults.value[fuzzyIndex].item.url);
 						searchQuery.value = "";
 					}
 				}
@@ -382,10 +398,11 @@ const handleKeydown = (event: KeyboardEvent) => {
 	// Handle complete URI
 	else if (isCompleteURI.value && event.key === "Enter") {
 		event.preventDefault();
-		window.location.href =
+		openUrl(
 			searchQuery.value.startsWith("http")
 				? searchQuery.value
-				: `https://${searchQuery.value}`;
+				: `https://${searchQuery.value}`
+		);
 		searchQuery.value = "";
 		return;
 	}
@@ -398,11 +415,11 @@ const updateSelectedEngine = () => {
 const addNewLine = (event: KeyboardEvent) => {
 	if (event.shiftKey && event.key === "Enter") {
 		event.preventDefault();
-		const textarea = searchInput.value;
+		const textarea = searchInput.value as HTMLTextAreaElement;
 		if (textarea) {
 			const start = textarea.selectionStart;
 			const end = textarea.selectionEnd;
-			searchQuery.value = searchQuery.value.substring(0, start) + "\n" + searchQuery.value.substring(end);
+			searchQuery.value = `${searchQuery.value.substring(0, start)}\n${searchQuery.value.substring(end)}`;
 			textarea.selectionStart = textarea.selectionEnd = start + 1;
 		}
 	}

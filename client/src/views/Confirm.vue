@@ -32,10 +32,12 @@
   import { onMounted, ref } from "vue";
   import { useRouter } from "vue-router";
   import { useUserStore } from "@/stores/user";
+  import { useUserSettingsStore } from "@/stores/settings";
   import { Clerk } from "@clerk/clerk-js";
 
   const router = useRouter();
   const userStore = useUserStore();
+  const userSettingsStore = useUserSettingsStore();
 
   const clerkPubKey = import.meta.env.VITE_CLERK_PUBLISHABLE_KEY;
   const clerk = new Clerk(clerkPubKey);
@@ -71,6 +73,9 @@
       if(userStore.userPlan?.name === "free") {
         throw new Error("Subscription not active");
       }
+
+      // always fetch settings with User
+      await userSettingsStore.fetchSettings();
 
       isLoading.value = false;
     } catch (err) {

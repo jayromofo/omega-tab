@@ -27,17 +27,17 @@
           <v-text-field v-model="fullName" label="Name" disabled class="mb-4" />
           <v-text-field v-model="email" label="Email" disabled class="mb-4" />
         </v-form>
-        <v-alert type="info" class="my-8">
-          More options and themes coming soon
-        </v-alert>
-        <v-switch v-model="settings.searchHistory" label="Enable Search History" class="mb-4" color="primary"
-          :disabled="userPlan?.name === 'free'" />
-        <v-switch v-model="settings.autocompleteSuggestions" label="Enable Autocomplete Suggestions Powered By Google"
-          class="mb-4" color="primary" :disabled="userPlan?.name === 'free'" />
-        <v-switch v-model="settings.jiraIntegration" label="Enable Jira Integration" class="mb-4" color="primary"
-          :disabled="userPlan?.name === 'free'" />
-        <v-switch v-model="settings.confluenceIntegration" label="Enable Confluence Integration" class="mb-4"
-          color="primary" :disabled="userPlan?.name === 'free'" />
+        <div v-for="setting in UserSettingsLabels" :key="setting.key" class="mb-4">
+          <!-- Todo, when hover over a setting, provide more details -->
+          <v-switch
+            v-if="setting.active"
+            color="primary"
+            v-model="settingsStore.settings[setting.key]"
+            :label="setting.label"
+            @change="settingsStore.updateSetting(setting.key, settingsStore.settings[setting.key])"
+          />
+        </div>
+
       </div>
 
       <!-- Team Management -->
@@ -276,10 +276,13 @@
   import Feedback from "../components/Feedback.vue";
   import { useFeedbackStore } from "../stores/feedback";
   import type { CancellationReason } from "../types/CancellationReasons";
+  import { type UserSettings, UserSettingsLabels } from "../types/UserSettings";
+  import { useUserSettingsStore } from "../stores/settings";
 
   // In Settings.vue setup
   const userStore = useUserStore();
   const feedbackStore = useFeedbackStore();
+  const settingsStore = useUserSettingsStore();
 
   const userId = computed(() => userStore.userId);
   const firstName = computed(() => userStore.firstName);
@@ -343,13 +346,6 @@
   const isEnterprisePlan = computed(() => userPlan.value?.name === "enterprise");
   const showTeamTab = computed(() => isTeamPlan.value);
   const hasTeam = computed(() => teamMembers.value.length > 0);
-
-  const settings = ref({
-    searchHistory: false,
-    autocompleteSuggestions: false,
-    jiraIntegration: false,
-    confluenceIntegration: false,
-  });
 
   const filteredOrgMembers = computed(() => {
     if (!memberSearch.value) return orgMembers.value;
@@ -509,6 +505,7 @@
   const reportError = () => {
     window.location.href = "mailto:evan.robertson77@gmail.com";
   };
+
 </script>
 
 <style scoped>

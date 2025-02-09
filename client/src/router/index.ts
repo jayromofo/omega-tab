@@ -3,6 +3,7 @@ import { Clerk } from "@clerk/clerk-js";
 // src/router/index.ts
 import { createRouter, createWebHistory } from "vue-router";
 import { useUserStore } from "../stores/user";
+import { useUserSettingsStore } from "../stores/settings";
 
 const router = createRouter({
   history: createWebHistory(),
@@ -28,6 +29,7 @@ const router = createRouter({
       component: () => import("../views/Settings.vue"),
       beforeEnter: async (to, from, next) => {
         const userStore = useUserStore();
+        const userSettingsStore = useUserSettingsStore();
 
         // if not logged in already in userStore (user probably refreshed page)
         if (!userStore.userId) {
@@ -56,6 +58,9 @@ const router = createRouter({
               throw new Error("Failed to fetch user data");
             }
 
+            // always fetch settings with User
+            await userSettingsStore.fetchSettings();
+
             next();
           } catch (err) {
             console.error(err);
@@ -64,6 +69,7 @@ const router = createRouter({
         } else {
           next();
         }
+
       },
     },
   ],

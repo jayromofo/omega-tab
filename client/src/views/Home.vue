@@ -192,6 +192,7 @@ import Feedback from "../components/Feedback.vue";
 import { useUserStore } from "../stores/user";
 import { useLinksStore } from "../stores/links";
 import { useFeedbackStore } from "../stores/feedback";
+import { useUserSettingsStore } from "../stores/settings";
 import { storeToRefs } from "pinia";
 import { searchEngines } from "../data/SearchEngines";
 import { API } from "../constants/api";
@@ -199,6 +200,7 @@ import { API } from "../constants/api";
 const userStore = useUserStore();
 const linksStore = useLinksStore();
 const feedbackStore = useFeedbackStore();
+const userSettingsStore = useUserSettingsStore();
 // Convert store properties to refs for reactivity
 const { toolLinks, docLinks } = storeToRefs(linksStore)
 const { links } = storeToRefs(linksStore)
@@ -371,6 +373,9 @@ onMounted(async () => {
       if (!gotUser) {
         throw new Error("Error fetching user data");
       }
+
+      // always fetch settings with User
+      userSettingsStore.fetchSettings();
 
       // this is def not gonna happen but for type errors
       if (!userStore.userId) {
