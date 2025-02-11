@@ -229,7 +229,7 @@
 	}
 
 	.link-card-grid:has(.two-columns) {
-		justify-content: center;
+		justify-content: space-evenly;
 	}
 
 	.link-card-grid:has(.three-columns) {

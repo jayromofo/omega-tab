@@ -1,6 +1,6 @@
 <template>
-	<v-dialog v-model="isModalOpen" width="500">
-		<v-card>
+	<v-dialog v-model="isModalOpen" width="500" :fullscreen="mobile">
+		<v-card class="py-8 sm:py-0 sm:px-0">
 			<v-card-title>Edit Link</v-card-title>
 
 			<v-card-text>
@@ -22,54 +22,55 @@
 			</v-card-text>
 
 			<v-card-actions>
-				<div class="text-xs text-gray-500 grid grid-cols-3 gap-2 ps-4 pb-4">
-					<span class="col-span-1 text-start">Submit:</span>
-					<span class="col-span-2">
-						<span class="kbd">enter<v-icon size="18">mdi-keyboard-return</v-icon></span>
-					</span>
-					<span class="col-span-1 text-start">New line:</span>
-					<span class="col-span-2">
-						<span class="kbd">shift<v-icon size="18">mdi-arrow-up</v-icon></span> + <span class="kbd">enter<v-icon
-								size="18">mdi-keyboard-return</v-icon></span>
-					</span>
-				</div>
-				<v-spacer></v-spacer>
-				<div class="grid grid-rows-2 gap-4">
-					<div>
-						<v-btn color="grey-darken-1" variant="text" @click="closeModal">
-							Cancel
-						</v-btn>
-						<v-btn color="primary" variant="text" :loading="isLoading" @click="handleSubmit">
-							Save Link
-						</v-btn>
+					<div :class="mobile ? 'hidden' : 'text-xs text-gray-500 grid grid-cols-3 gap-2 ps-4 pb-4'">
+						<span class="col-span-1 text-start">Submit:</span>
+						<span class="col-span-2">
+							<span class="kbd">enter<v-icon size="18">mdi-keyboard-return</v-icon></span>
+						</span>
+						<span class="col-span-1 text-start">New line:</span>
+						<span class="col-span-2">
+							<span class="kbd">shift<v-icon size="18">mdi-arrow-up</v-icon></span> + <span class="kbd">enter<v-icon
+									size="18">mdi-keyboard-return</v-icon></span>
+						</span>
 					</div>
-					<div class="flex justify-end">
-						<v-tooltip location="left" :z-index="1000" max-width="300">
-							<template v-slot:activator="{ props }">
-								<v-btn v-bind="props">
-									<v-icon size="x-large" icon="mdi-help-circle-outline" class="text-gray-500" />
-								</v-btn>
-							</template>
-							<span>
-								<span class="kbd">+Plus Feature</span><br/>
-								<strong>Better New Tab</strong> will not attempt to fetch the title or description from the URL when editing a link.
-								<br/><br/>
-								Add a new link to see this feature in action.
-							</span>
-						</v-tooltip>
+					<v-spacer v-if="!mobile"></v-spacer>
+					<div :class="mobile ? 'flex flex-col gap-4 w-full' : 'grid grid-rows-2 gap-4'">
+						<div :class="mobile ? 'flex justify-around' : ''">
+							<v-btn color="grey-darken-1" :variant="mobile ? 'elevated' : 'text' " :size="mobile ? 'x-large' : 'default'" @click="closeModal">
+								Cancel
+							</v-btn>
+							<v-btn color="primary" :variant="mobile ? 'elevated' : 'text'" :size="mobile ? 'x-large' : 'default'" :loading="isLoading" @click="handleSubmit">
+								Save Link
+							</v-btn>
+						</div>
+						<div class="flex justify-end">
+							<v-tooltip location="left" :z-index="1000" max-width="300" open-on-click>
+								<template v-slot:activator="{ props }">
+									<v-btn v-bind="props">
+										<v-icon size="x-large" icon="mdi-help-circle-outline" class="text-gray-500" />
+									</v-btn>
+								</template>
+								<span>
+									<span class="kbd">+Plus Feature</span><br/>
+									<strong>Better New Tab</strong> will not attempt to fetch the title or description from the URL when editing a link.
+									<br/><br/>
+									Add a new link to see this feature in action.
+								</span>
+							</v-tooltip>
+						</div>
 					</div>
-				</div>
-			</v-card-actions>
+				</v-card-actions>
 		</v-card>
 	</v-dialog>
 </template>
 
 <script setup lang="ts">
-import { useApi } from "@/composables/useApi";
 import { ref, watch } from "vue";
 import type { Link } from "@/types/Link";
 import { useLinksStore } from "../stores/links";
+import { useDisplay } from 'vuetify';
 const linkStore = useLinksStore();
+const mobile = useDisplay().smAndDown;
 
 const props = defineProps<{
 	modelValue: boolean;
