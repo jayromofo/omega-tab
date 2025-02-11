@@ -1,5 +1,5 @@
 <template>
-	<div class="mt-16 mx-16">
+	<div class="mt-16 sm:mx-16">
 		<div class="searchBarContainer">
 			<v-container>
 				<v-row>
@@ -14,11 +14,10 @@
 				<v-row>
 					<v-col>
 						<v-row class="flex justify-between">
-							<v-col cols="2">
+							<v-col :cols="mobile ? 6: 2" class="select-container">
 								<v-select v-model="selectedEngine" :items="searchEngines" item-title="name"
 									item-value="url" variant="solo-inverted" hide-details
 									@update:modelValue="updateSelectedEngine">
-									<!-- For the selected value display -->
 									<template v-slot:selection="{ item }">
 										<div class="d-flex align-center">
 											<v-icon v-if="item.raw.icon.startsWith('mdi-')" :icon="item.raw.icon" size="36" class="mr-2" />
@@ -26,7 +25,6 @@
 										</div>
 									</template>
 
-									<!-- For each item in the dropdown -->
 									<template v-slot:item="{ props, item }">
 										<v-list-item v-bind="props">
 											<template v-slot:prepend>
@@ -41,8 +39,8 @@
 									</template>
 								</v-select>
 							</v-col>
-							<v-col cols="2" class="flex justify-end items-end">
-								<v-btn icon="mdi-arrow-right" @click="performSearch">
+							<v-col :cols="mobile ? 6: 2" class="flex justify-end items-end">
+								<v-btn icon="mdi-arrow-right" @click="performSearch" class="search-btn">
 								</v-btn>
 							</v-col>
 						</v-row>
@@ -94,7 +92,10 @@ import { storeToRefs } from "pinia";
 import { API } from "../constants/api";
 import { useSearchEngineStore } from '../stores/searchEngine';
 import { openUrl } from '../utils/openUrl';
+import { useDisplay } from 'vuetify';
+
 const AUTO_SUGGEST_ON = import.meta.env.VITE_AUTO_SUGGEST_ON === 'true';
+const mobile = useDisplay().smAndDown;
 
 interface HistoryItem {
 	query: string;
@@ -627,5 +628,10 @@ onUnmounted(() => {
 .searchBarContainer:focus-within {
 	border: #ffffff1e 1px solid;
 	box-shadow: 0 2px 10px 1px rgba(255, 255, 255, 0.1);
+}
+
+/* Add responsive styles */
+@media (max-width: 600px) {
+
 }
 </style>

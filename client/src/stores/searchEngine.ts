@@ -1,19 +1,21 @@
-import { defineStore } from 'pinia';
+import { defineStore } from "pinia";
 
-export const useSearchEngineStore = defineStore('searchEngine', {
+export const useSearchEngineStore = defineStore("searchEngine", {
   state: () => ({
     searchEngines: [
-      { name: 'Brave', url: 'https://search.brave.com/search?q=' },
-      { name: 'Perplexity', url: 'https://www.perplexity.ai/search?q=' },
-      { name: 'Google', url: 'https://www.google.com/search?q=' },
-      { name: 'Bing', url: 'https://www.bing.com/search?q=' },
+      { name: "Brave", url: "https://search.brave.com/search?q=" },
+      { name: "Perplexity", url: "https://www.perplexity.ai/search?q=" },
+      { name: "Google", url: "https://www.google.com/search?q=" },
+      { name: "Bing", url: "https://www.bing.com/search?q=" },
     ],
-    selectedEngine: localStorage.getItem('defaultSearchEngine') || 'https://search.brave.com/search?q=',
+    selectedEngine:
+      localStorage.getItem("defaultSearchEngine") ||
+      "https://search.brave.com/search?q=",
   }),
   actions: {
     setSearchEngine(url: string) {
       this.selectedEngine = url;
-      localStorage.setItem('defaultSearchEngine', url);
+      localStorage.setItem("defaultSearchEngine", url);
     },
   },
 });

@@ -1,4 +1,4 @@
-import { useUserSettingsStore } from '../stores/settings';
+import { useUserSettingsStore } from "../stores/settings";
 
 export const openUrl = (url: string) => {
   const settingsStore = useUserSettingsStore();
