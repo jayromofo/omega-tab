@@ -1,5 +1,5 @@
 <template>
-	<div class="link-card-grid" @mousedown="startDrag" @touchstart="startDrag">
+	<div class="link-card-grid">
 		<div v-for="columnType in uniqueColumnTypes" :key="columnType" :class="columnClass">
 			<h2 class="text-xl">{{ columnType.charAt(0).toUpperCase() + columnType.slice(1) }}</h2>
 			<LinkCard v-for="(link, index) in getLinksByColumnType(columnType)" :key="link.order_index" :icon="link.icon ?? ''" :title="link.title"
@@ -64,8 +64,114 @@
 		}
 	};
 
+	const handleDrag = () => {
+		const container = document.querySelector('.link-card-grid') as HTMLElement | null;
+		if (!container) return;
+
+		let isDown = false;
+		let startX: number;
+		let scrollLeft: number;
+		let velocity = 0;
+		let lastX: number;
+		let frame: number;
+
+		// Prevent text selection during drag
+		container.style.userSelect = 'none';
+
+		// Add touch events support
+		container.addEventListener('touchstart', (e: TouchEvent) => {
+			isDown = true;
+			container.style.cursor = 'grabbing';
+			startX = e.touches[0].pageX - container.offsetLeft;
+			scrollLeft = container.scrollLeft;
+			lastX = e.touches[0].pageX;
+			cancelAnimationFrame(frame);
+		});
+
+		container.addEventListener('mousedown', (e: MouseEvent) => {
+			isDown = true;
+			container.style.cursor = 'grabbing';
+			startX = e.pageX - container.offsetLeft;
+			scrollLeft = container.scrollLeft;
+			lastX = e.pageX;
+			cancelAnimationFrame(frame);
+		});
+
+		const handleDragEnd = () => {
+			isDown = false;
+			container.style.cursor = 'grab';
+
+			// Apply momentum scrolling
+			const momentumScroll = () => {
+				if (Math.abs(velocity) > 0.1) {
+					container.scrollLeft += velocity;
+					velocity *= 0.95; // Decay factor
+					frame = requestAnimationFrame(momentumScroll);
+				}
+			};
+
+			momentumScroll();
+		};
+
+		container.addEventListener('mouseup', handleDragEnd);
+		container.addEventListener('mouseleave', handleDragEnd);
+		container.addEventListener('touchend', handleDragEnd);
+		container.addEventListener('touchcancel', handleDragEnd);
+
+		container.addEventListener('touchmove', (e: TouchEvent) => {
+			if (!isDown) return;
+			e.preventDefault();
+			const x = e.touches[0].pageX - container.offsetLeft;
+			const walk = (x - startX) * 2;
+			container.scrollLeft = scrollLeft - walk;
+
+			// Calculate velocity for momentum
+			velocity = lastX - e.touches[0].pageX;
+			lastX = e.touches[0].pageX;
+		});
+
+		container.addEventListener('mousemove', (e: MouseEvent) => {
+			if (!isDown) return;
+			e.preventDefault();
+			const x = e.pageX - container.offsetLeft;
+			const walk = (x - startX) * 2;
+			container.scrollLeft = scrollLeft - walk;
+
+			// Calculate velocity for momentum
+			velocity = lastX - e.pageX;
+			lastX = e.pageX;
+		});
+
+		// Add CSS overrides for mobile
+		const style = document.createElement('style');
+		style.textContent = `
+			.link-card-grid * {
+				-webkit-touch-callout: none;
+				-webkit-tap-highlight-color: transparent;
+			}
+
+			@media (pointer: coarse) {
+				.link-card-grid {
+					scroll-snap-type: x mandatory;
+					scroll-behavior: smooth;
+				}
+
+				.link-card-grid > div {
+					scroll-snap-align: start;
+				}
+			}
+		`;
+		document.head.appendChild(style);
+
+		onUnmounted(() => {
+			cancelAnimationFrame(frame);
+		});
+
+	};
+
 	onMounted(() => {
 		window.addEventListener("keydown", handleKeydown);
+		handleDrag();
 	});
 
 	onUnmounted(() => {
@@ -89,7 +195,9 @@
 		margin-top: 3rem;
 		gap: 2rem;
 		padding-bottom: 2rem;
-		/* cursor: grab; */
+		cursor: grab;
+		white-space: nowrap;
+		-webkit-overflow-scrolling: touch;
 	}
 
 	.link-card-grid:active {
@@ -147,5 +255,22 @@
 
 	.multiple-columns {
 		flex: 0 0 45%;
+	}
+
+	@media (max-width: 600px) {
+		.link-card-grid {
+			flex-wrap: nowrap;
+			overflow-x: auto;
+			scroll-snap-type: x mandatory;
+			justify-content: center;
+		}
+
+		.link-card-grid > div {
+			flex: 0 0 100%;
+			width: 75%;
+			scroll-snap-align: start;
+			padding-right: 1rem;
+			padding-left: 1rem;
+		}
 	}
 </style>
