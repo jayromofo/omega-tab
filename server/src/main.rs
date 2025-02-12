@@ -740,6 +740,19 @@ async fn cancel_handler(
         return Err(StatusCode::INTERNAL_SERVER_ERROR);
     }
 
+    // todo - test the subscription flow with this
+    let memberships = supabase.get_user_memberships(&user_id).await.map_err(|e| {
+        println!("Error getting memberships: {:?}", e);
+        StatusCode::INTERNAL_SERVER_ERROR
+    })?;
+
+    for membership in memberships {
+        if let Err(e) = supabase.remove_member(&membership.user_id, &membership.entity_id).await {
+            println!("Error removing membership: {:?}", e);
+            return Err(StatusCode::INTERNAL_SERVER_ERROR);
+        }
+    }
+
     return Ok(StatusCode::OK);
 }
 
