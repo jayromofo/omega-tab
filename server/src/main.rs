@@ -281,6 +281,7 @@ async fn confirm_handler(
     let customer = match StripeClient::get_customer(&user_email).await {
         Some(customer) => customer,
         None => {
+            println!("No customer found, returning free plan");
             return Ok(Json(SubscriptionResponse {
                 plan_id: free_plan_id,
                 current_period_end: 0,
@@ -295,6 +296,7 @@ async fn confirm_handler(
     let subscription = match StripeClient::get_subscription(&customer).await {
         Some(sub) => sub,
         None => {
+            println!("No subscription found, returning free plan");
             return Ok(Json(SubscriptionResponse {
                 plan_id: free_plan_id,
                 current_period_end: 0,
@@ -354,6 +356,11 @@ async fn confirm_handler(
 
     println!("Supabase plan: {:?}", supabase_plan);
 
+    /*
+    Note: The subscription has been verified as active in stripe above
+    so everything below is just to verify and update the subscription record in Supabase
+    */
+
     // Verify subscription record
     let sub_result = supabase.get_user_subscription(&user.id).await;
 
@@ -362,21 +369,29 @@ async fn confirm_handler(
         Ok(sub) => {
             println!("Got subscription from Supabase");
             // Update existing subscription if plan changed
-            if sub.plan_id != supabase_plan.id {
+            // if plan id has changed (user upgraded/downgraded); or,
+            // the plan exists but has been cancelled and is now being re-activated
+            if (sub.plan_id != supabase_plan.id) ||
+            sub.status.eq("cancelled") {
                 let mut updates = HashMap::new();
                 updates.insert("plan_id".to_string(), json!(supabase_plan.id));
                 updates.insert(
                     "current_period_end".to_string(),
-                    json!(subscription.current_period_end),
+                    json!(Utc.timestamp(subscription.current_period_end, 0).to_rfc3339()),
                 );
                 updates.insert("stripe_subscription_id".to_string(), json!(subscription.id));
+                updates.insert("status".to_string(), json!("active"));
 
                 println!("Updating subscription");
                 println!("updates: {:?}", updates);
                 supabase
                     .update_subscription(&sub.id, updates)
                     .await
-                    .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+                    .map_err(|e| {
+                        println!("Error updating subscription: {:?}", e);
+                        tracing::error!("Error updating subscription: {:?}", e);
+                        StatusCode::INTERNAL_SERVER_ERROR
+                    })?;
             }
         }
         Err(_) => {
@@ -420,7 +435,7 @@ async fn confirm_handler(
 
     match membership_result {
         Ok(memberships) => {
-            println!("Got membership vector from Supabase good");
+            println!("Got membership vector from Supabase");
             if memberships.is_empty() {
                 println!("Vector is empty, creating membership record");
                 let membership = supabase::UserMembership {

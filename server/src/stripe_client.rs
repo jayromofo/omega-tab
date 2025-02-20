@@ -8,6 +8,7 @@ pub struct StripeClient {}
 impl StripeClient {
     pub async fn get_customer(email: &str) -> Option<Customer> {
         tracing::info!("Fetching Stripe customer for email: {}", email);
+        println!("Fetching Stripe customer for email: {}", email);
         let secret_key = std::env::var("STRIPE_SECRET_KEY").expect("STRIPE_SECRET_KEY must be set");
 
         let client = Client::new(secret_key);
@@ -20,13 +21,16 @@ impl StripeClient {
                 let customer = customers.data.into_iter().next();
                 if let Some(ref c) = customer {
                     tracing::info!("Found Stripe customer for email: {}", email);
+                    println!("Found Stripe customer for email: {}", email);
                 } else {
                     tracing::info!("No Stripe customer found for email: {}", email);
+                    println!("No Stripe customer found for email: {}", email);
                 }
                 customer
             },
             Err(err) => {
                 tracing::error!("Error retrieving Stripe customer: {:?}", err);
+                println!("Error retrieving Stripe customer: {:?}", err);
                 None
             }
         }

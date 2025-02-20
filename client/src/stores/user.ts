@@ -34,7 +34,6 @@ export const useUserStore = defineStore("user", {
         Object.assign(this.$state, cachedData);
         console.log("Loaded user data from cache");
         this.isLoading = false;
-        return true;
       }
 
       try {
@@ -80,6 +79,19 @@ export const useUserStore = defineStore("user", {
       } finally {
         this.isLoading = false;
       }
+    },
+
+    async confirmSubscription(): Promise<boolean> {
+      if (!this.userId || !this.email) {
+        throw new Error("User ID or email not found");
+      }
+
+      const response = await fetch(API.CONFIRM_SUBSCRIPTION(this.email, this.userId));
+      if (!response.ok) {
+        throw new Error(`Failed to confirm subscription, status: ${response.status}`);
+      }
+
+      return true;
     },
 
     setUserId(userId: string) {

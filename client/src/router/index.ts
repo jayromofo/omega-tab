@@ -32,13 +32,8 @@ const router = createRouter({
         const userStore = useUserStore();
         const userSettingsStore = useUserSettingsStore();
 
-        // Load from cache first
-        const cachedUser = cache.get(CacheKeys.USER);
-        if (cachedUser) {
-          Object.assign(userStore.$state, cachedUser);
-        }
-
         // if not logged in already in userStore (user probably refreshed page)
+        // note: don't refreh from cache here, speed is not important, accuracy is.
         if (!userStore.userId) {
           try {
             const clerk = new Clerk(import.meta.env.VITE_CLERK_PUBLISHABLE_KEY);

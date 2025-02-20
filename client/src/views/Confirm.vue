@@ -70,12 +70,11 @@
         throw new Error("Failed to fetch user data");
       }
 
-      if(userStore.userPlan?.name === "free") {
-        throw new Error("Subscription not active");
+      // now confirm the subscription
+      const confirmed = await userStore.confirmSubscription();
+      if (!confirmed) {
+        throw new Error("Failed to confirm subscription");
       }
-
-      // always fetch settings with User
-      await userSettingsStore.fetchSettings();
 
       isLoading.value = false;
     } catch (err) {
