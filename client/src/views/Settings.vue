@@ -268,7 +268,7 @@
 </template>
 
 <script setup lang="ts">
-  import { type ComputedRef, computed, ref } from "vue";
+  import { type ComputedRef, computed, ref, onMounted, onUnmounted } from "vue";
   import { useRouter } from "vue-router";
   import { useUserStore } from "../stores/user";
   import type { Features } from "../types/Features";
@@ -280,11 +280,16 @@
   import { useUserSettingsStore } from "../stores/settings";
   import { useDisplay } from 'vuetify';
   import api from "@/services/api";
-  // In Settings.vue setup
+  import { Clerk } from "@clerk/clerk-js";
+
+// In Settings.vue setup
   const userStore = useUserStore();
   const feedbackStore = useFeedbackStore();
   const settingsStore = useUserSettingsStore();
   const mobile = useDisplay().smAndDown;
+
+  const clerkPubKey = import.meta.env.VITE_CLERK_PUBLISHABLE_KEY;
+  const clerk = new Clerk(clerkPubKey);
 
   const userId = computed(() => userStore.userId);
   const firstName = computed(() => userStore.firstName);
@@ -311,6 +316,9 @@
   const showSubscriptionCanceledDialog = ref(false);
   const subscriptionCanceledSuccess = ref(false);
   const subscriptionCanceledError = ref("");
+
+  // Token refresh interval
+  let tokenRefreshInterval: number | undefined;
 
   // Team management data
   const teamForm = ref({
@@ -361,6 +369,29 @@
   });
 
   const showCancelDialog = ref(false);
+
+  const refreshToken = async () => {
+    try {
+      const session = await clerk.session;
+      const token = await session?.getToken();
+      if (token) {
+        localStorage.setItem("token", token);
+      }
+    } catch (error) {
+      console.error("Error refreshing JWT token:", error);
+    }
+  };
+
+  const startTokenRefreshInterval = () => {
+    // Refresh token every 15 minutes
+    tokenRefreshInterval = window.setInterval(refreshToken, 1 * 60 * 1000);
+  };
+
+  const stopTokenRefreshInterval = () => {
+    if (tokenRefreshInterval) {
+      clearInterval(tokenRefreshInterval);
+    }
+  };
 
   // Methods
   const handleTeamSubmit = async () => {
@@ -498,6 +529,14 @@
     window.location.href = "mailto:evan.robertson77@gmail.com";
   };
 
+  onMounted(() => {
+    // Start token refresh interval
+    startTokenRefreshInterval();
+  });
+
+  onUnmounted(() => {
+    stopTokenRefreshInterval();
+  });
 </script>
 
 <style scoped>

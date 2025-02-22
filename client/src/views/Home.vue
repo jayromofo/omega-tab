@@ -183,7 +183,7 @@
 import CommandPalette from '../components/CommandPalette.vue';
 import type { Link } from "@/types/Link";
 import { Clerk } from "@clerk/clerk-js";
-import { computed, nextTick, onMounted, ref } from "vue";
+import { computed, nextTick, onMounted, ref, onUnmounted } from "vue";
 import { useRouter } from "vue-router";
 import LandingPage from "../components/LandingPage.vue";
 import NewLandingPage from "../components/NewLandingPage.vue";
@@ -221,6 +221,9 @@ const showFeedbackDialog = ref(false);
 const showFeedbackMessageDialog = ref(false);
 const feedbackMessageTitle = ref("");
 const feedbackMessage = ref("");
+
+// Token refresh interval
+let tokenRefreshInterval: number | undefined;
 
 // User and data state
 const userId = ref<string | null>(null);
@@ -340,6 +343,29 @@ const handleFeedbackDialogClose = async (value: boolean) => {
   }
 };
 
+const refreshToken = async () => {
+  try {
+    const session = await clerk.session;
+    const token = await session?.getToken();
+    if (token) {
+      localStorage.setItem("token", token);
+    }
+  } catch (error) {
+    console.error("Error refreshing JWT token:", error);
+  }
+};
+
+const startTokenRefreshInterval = () => {
+  // Refresh token every 15 minutes
+  tokenRefreshInterval = window.setInterval(refreshToken, 1 * 60 * 1000);
+};
+
+const stopTokenRefreshInterval = () => {
+  if (tokenRefreshInterval) {
+    clearInterval(tokenRefreshInterval);
+  }
+};
+
 // Lifecycle hooks
 onMounted(async () => {
   isLoading.value = true;
@@ -360,6 +386,9 @@ onMounted(async () => {
       } catch (error) {
         console.error("Error fetching JWT token:", error);
       }
+
+      // Start token refresh interval
+      startTokenRefreshInterval();
 
       let gotUser = false;
       try {
@@ -417,6 +446,10 @@ onMounted(async () => {
 
   // mount event listenrs
   window.addEventListener('keydown', handleShowKeyboardShortcuts);
+});
+
+onUnmounted(() => {
+  stopTokenRefreshInterval();
 });
 </script>
 
