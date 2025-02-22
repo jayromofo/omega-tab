@@ -19,12 +19,9 @@
             @click="handleSelect(result)"
             @mouseover="focusedIndex = index"
             rounded-pill
-          >
-            <v-list-item-content>
-              <v-list-item-title>{{ result.title }}</v-list-item-title>
-              <v-list-item-subtitle>{{ result.subtitle }}</v-list-item-subtitle>
-            </v-list-item-content>
-          </v-list-item>
+            :title="result.title"
+            :subtitle="result.subtitle"
+          ></v-list-item>
         </v-list>
       </v-card-text>
     </v-card>

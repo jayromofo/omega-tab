@@ -90,7 +90,7 @@
 			scrollLeft = container.scrollLeft;
 			lastX = e.touches[0].pageX;
 			cancelAnimationFrame(frame);
-		});
+		}, { passive: true });
 
 		container.addEventListener('mousedown', (e: MouseEvent) => {
 			isDown = true;
@@ -99,7 +99,7 @@
 			scrollLeft = container.scrollLeft;
 			lastX = e.pageX;
 			cancelAnimationFrame(frame);
-		});
+		}, { passive: true });
 
 		const handleDragEnd = () => {
 			isDown = false;

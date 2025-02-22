@@ -164,7 +164,7 @@
       </v-dialog>
     </div>
 
-    <Feedback v-model="showFeedbackDialog" @update:modelValue="handleFeedbackDialogClose" :cancelSubscription="false" />
+    <Feedback v-model="showFeedbackDialog" @update:modelValue="handleFeedbackDialogClose" :cancelSubscription=false />
 
     <v-dialog v-model="showFeedbackMessageDialog" max-width="500px">
       <v-card>
