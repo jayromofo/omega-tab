@@ -141,7 +141,6 @@ async fn runtime() {
 
     let cors = CorsLayer::new()
         .allow_origin(Any)
-        // .allow_origin("http://localhost:5173".parse::<axum::http::HeaderValue>().unwrap())
         .allow_methods(Any)
         .allow_headers(Any);
 
@@ -187,6 +186,19 @@ async fn create_user_handler(
     Extension(user_context): Extension<UserContext>,
     Json(payload): Json<CreateUserRequest>,
 ) -> Result<Json<supabase::User>, StatusCode> {
+    let user_email = user_context.email.clone();
+    let user_id = user_context.user_id.clone();
+    println!("Creating new user: {}", payload.email);
+
+    sentry::configure_scope(|scope| {
+        scope.set_user(Some(sentry::User {
+            email: Some(user_email.clone()),
+            id: Some(user_id.clone()),
+            ..Default::default()
+        }));
+        scope.set_tag("http.method", "POST");
+    });
+
     tracing::info!("Creating new user: {}", payload.email);
 
     let supabase = Supabase::new(
@@ -269,7 +281,6 @@ async fn confirm_handler(
     let user_id = user_context.user_id.clone();
     println!("Confirming email: {}", user_email);
 
-    // todo - put this everywhere somehow lol
     sentry::configure_scope(|scope| {
         scope.set_user(Some(sentry::User {
             email: Some(user_email.clone()),
@@ -484,7 +495,19 @@ async fn confirm_handler(
 async fn links_handler(
     Extension(user_context): Extension<UserContext>,
 ) -> Result<Json<Vec<supabase::Link>>, StatusCode> {
+    let user_email = user_context.email.clone();
     let user_id = user_context.user_id.clone();
+    println!("Fetching links for user: {}", user_id);
+
+    sentry::configure_scope(|scope| {
+        scope.set_user(Some(sentry::User {
+            email: Some(user_email.clone()),
+            id: Some(user_id.clone()),
+            ..Default::default()
+        }));
+        scope.set_tag("http.method", "GET");
+    });
+
     tracing::info!("Fetching links for user: {}", user_id);
 
     let supabase = Supabase::new(
@@ -513,6 +536,19 @@ async fn create_link(
     Extension(user_context): Extension<UserContext>,
     Json(payload): Json<CreateLinkRequest>,
 ) -> Result<(StatusCode, Json<supabase::Link>), StatusCode> {
+    let user_email = user_context.email.clone();
+    let user_id = user_context.user_id.clone();
+    println!("Creating new link for owner {}: {}", payload.owner_id, payload.url);
+
+    sentry::configure_scope(|scope| {
+        scope.set_user(Some(sentry::User {
+            email: Some(user_email.clone()),
+            id: Some(user_id.clone()),
+            ..Default::default()
+        }));
+        scope.set_tag("http.method", "POST");
+    });
+
     tracing::info!("Creating new link for owner {}: {}", payload.owner_id, payload.url);
 
     let supabase = Supabase::new(
@@ -596,6 +632,19 @@ async fn update_link(
     Extension(user_context): Extension<UserContext>,
     Json(payload): Json<UpdateLinkRequest>
 ) -> Result<StatusCode, StatusCode> {
+    let user_email = user_context.email.clone();
+    let user_id = user_context.user_id.clone();
+    println!("Updating link: {}", payload.id);
+
+    sentry::configure_scope(|scope| {
+        scope.set_user(Some(sentry::User {
+            email: Some(user_email.clone()),
+            id: Some(user_id.clone()),
+            ..Default::default()
+        }));
+        scope.set_tag("http.method", "PUT");
+    });
+
     tracing::info!("Updating link: {}", payload.id);
 
     let supabase = Supabase::new(
@@ -638,6 +687,18 @@ async fn delete_link(
     Path(link_id): Path<String>,
     Extension(user_context): Extension<UserContext>,
 ) -> Result<StatusCode, StatusCode> {
+    let user_email = user_context.email.clone();
+    let user_id = user_context.user_id.clone();
+
+    sentry::configure_scope(|scope| {
+        scope.set_user(Some(sentry::User {
+            email: Some(user_email.clone()),
+            id: Some(user_id.clone()),
+            ..Default::default()
+        }));
+        scope.set_tag("http.method", "DELETE");
+    });
+
     let supabase = Supabase::new(
         std::env::var("SUPABASE_URL").expect("SUPABASE_URL must be set"),
         std::env::var("SUPABASE_KEY").expect("SUPABASE_KEY must be set"),
@@ -656,6 +717,18 @@ async fn plan_handler(
     Path(plan_id): Path<String>,
     Extension(user_context): Extension<UserContext>,
 ) -> Result<Json<supabase::Plan>, StatusCode> {
+    let user_email = user_context.email.clone();
+    let user_id = user_context.user_id.clone();
+
+    sentry::configure_scope(|scope| {
+        scope.set_user(Some(sentry::User {
+            email: Some(user_email.clone()),
+            id: Some(user_id.clone()),
+            ..Default::default()
+        }));
+        scope.set_tag("http.method", "GET");
+    });
+
     let supabase = Supabase::new(
         std::env::var("SUPABASE_URL").expect("SUPABASE_URL must be set"),
         std::env::var("SUPABASE_KEY").expect("SUPABASE_KEY must be set"),
@@ -676,7 +749,18 @@ async fn plan_handler(
 async fn get_user_handler(
     Extension(user_context): Extension<UserContext>,
 ) -> Result<Json<supabase::User>, StatusCode> {
+    let user_email = user_context.email.clone();
     let user_id = user_context.user_id.clone();
+
+    sentry::configure_scope(|scope| {
+        scope.set_user(Some(sentry::User {
+            email: Some(user_email.clone()),
+            id: Some(user_id.clone()),
+            ..Default::default()
+        }));
+        scope.set_tag("http.method", "GET");
+    });
+
     let supabase = Supabase::new(
         std::env::var("SUPABASE_URL").expect("SUPABASE_URL must be set"),
         std::env::var("SUPABASE_KEY").expect("SUPABASE_KEY must be set"),
@@ -731,8 +815,17 @@ async fn cancel_handler(
 
     let user_email = user_context.email.clone();
     let user_id = user_context.user_id.clone();
-
     println!("Cancelling email: {}", user_email);
+
+    sentry::configure_scope(|scope| {
+        scope.set_user(Some(sentry::User {
+            email: Some(user_email.clone()),
+            id: Some(user_id.clone()),
+            ..Default::default()
+        }));
+        scope.set_tag("http.method", "POST");
+    });
+
     println!("Cancelling user id: {}", user_id);
     println!("Feedback: {:?}", payload);
     let feedback = payload.feedback_comment.clone();
@@ -968,6 +1061,19 @@ async fn suggest_handler(
     Path(query): Path<String>,
     Extension(user_context): Extension<UserContext>,
 ) -> Result<Json<SuggestionResponse>, StatusCode> {
+    let user_email = user_context.email.clone();
+    let user_id = user_context.user_id.clone();
+    println!("Suggesting: {}", query);
+
+    sentry::configure_scope(|scope| {
+        scope.set_user(Some(sentry::User {
+            email: Some(user_email.clone()),
+            id: Some(user_id.clone()),
+            ..Default::default()
+        }));
+        scope.set_tag("http.method", "GET");
+    });
+
     println!("Suggesting: {}", query);
 
     let brave = Brave::new(
@@ -993,6 +1099,19 @@ async fn feedback_handler(
     Extension(user_context): Extension<UserContext>,
     Json(payload): Json<FeedbackRequest>,
 ) -> Result<StatusCode, StatusCode> {
+    let user_email = user_context.email.clone();
+    let user_id = user_context.user_id.clone();
+    println!("Feedback for user: {}", user_id);
+
+    sentry::configure_scope(|scope| {
+        scope.set_user(Some(sentry::User {
+            email: Some(user_email.clone()),
+            id: Some(user_id.clone()),
+            ..Default::default()
+        }));
+        scope.set_tag("http.method", "POST");
+    });
+
     let user_id = user_context.user_id.clone();
     let user_email = user_context.email.clone();
     println!("Feedback for user: {}", user_id);
@@ -1056,7 +1175,19 @@ async fn create_settings(
     Extension(user_context): Extension<UserContext>,
     Json(payload): Json<UserSettingsRequest>,
 ) -> Result<StatusCode, StatusCode> {
+    let user_email = user_context.email.clone();
     let user_id = user_context.user_id.clone();
+    println!("Creating settings for user: {}", user_id);
+
+    sentry::configure_scope(|scope| {
+        scope.set_user(Some(sentry::User {
+            email: Some(user_email.clone()),
+            id: Some(user_id.clone()),
+            ..Default::default()
+        }));
+        scope.set_tag("http.method", "POST");
+    });
+
     println!("Creating settings for user: {}", user_id);
     println!("Payload: {:?}", payload);
 
@@ -1084,7 +1215,19 @@ async fn update_settings(
     Extension(user_context): Extension<UserContext>,
     Json(payload): Json<UserSettingsRequest>,
 ) -> Result<StatusCode, StatusCode> {
+    let user_email = user_context.email.clone();
     let user_id = user_context.user_id.clone();
+    println!("Updating settings for user: {}", user_id);
+
+    sentry::configure_scope(|scope| {
+        scope.set_user(Some(sentry::User {
+            email: Some(user_email.clone()),
+            id: Some(user_id.clone()),
+            ..Default::default()
+        }));
+        scope.set_tag("http.method", "PUT");
+    });
+
     println!("Updating settings for user: {}", user_id);
     println!("Payload: {:?}", payload);
 
@@ -1108,7 +1251,19 @@ async fn update_settings(
 async fn get_settings(
     Extension(user_context): Extension<UserContext>,
 ) -> Result<Json<supabase::UserSettings>, StatusCode> {
+    let user_email = user_context.email.clone();
     let user_id = user_context.user_id.clone();
+    println!("Getting settings for user: {}", user_id);
+
+    sentry::configure_scope(|scope| {
+        scope.set_user(Some(sentry::User {
+            email: Some(user_email.clone()),
+            id: Some(user_id.clone()),
+            ..Default::default()
+        }));
+        scope.set_tag("http.method", "GET");
+    });
+
     println!("Getting settings for user: {}", user_id);
 
     let supabase = Supabase::new(
@@ -1133,6 +1288,10 @@ async fn cancel_subscription_hook(
     Json(payload): Json<Event>,
 ) -> Result<StatusCode, StatusCode> {
     println!("Received cancel subscription webhook");
+
+    sentry::configure_scope(|scope| {
+        scope.set_tag("http.method", "POST");
+    });
 
     let endpoint_secret = env::var("STRIPE_ENDPOINT_SECRET").expect("STRIPE_ENDPOINT_SECRET must be set");
     let verify_signature = env::var("STRIPE_VERIFY_WEBHOOK_SIGNATURE").expect("STRIPE_VERIFY_WEBHOOK_SIGNATURE must be set");
@@ -1230,6 +1389,19 @@ async fn cancel_subscription_hook(
 async fn get_user_data_handler(
     Extension(user_context): Extension<UserContext>,
 ) -> Result<Json<UserDataResponse>, StatusCode> {
+    let user_email = user_context.email.clone();
+    let user_id = user_context.user_id.clone();
+    println!("Fetching user data!");
+
+    sentry::configure_scope(|scope| {
+        scope.set_user(Some(sentry::User {
+            email: Some(user_email.clone()),
+            id: Some(user_id.clone()),
+            ..Default::default()
+        }));
+        scope.set_tag("http.method", "GET");
+    });
+
     println!("Fetching user data!");
     let user_id = user_context.user_id.clone();
     let user_email = user_context.email.clone();
