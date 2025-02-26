@@ -18,6 +18,23 @@
 							handleSubmit()
 						}
 					}" v-model="formData.description" label="Description" rows="3"></v-textarea>
+
+					<v-select v-model="formData.columnType" :items="columnTypes" label="Column Label" required>
+						<template v-slot:append-item>
+							<v-divider class="my-4"></v-divider>
+							<v-list-item>
+								<v-text-field
+									v-model="newColumnType"
+									label="New Column Type"
+									dense
+									hide-details
+								></v-text-field>
+								<v-btn @click="addNewColumnType" color="primary" class="w-full">
+									Add
+								</v-btn>
+							</v-list-item>
+						</template>
+					</v-select>
 				</v-form>
 			</v-card-text>
 
@@ -65,7 +82,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, watch } from "vue";
+import { ref, watch, computed } from "vue";
 import type { Link } from "@/types/Link";
 import { useLinksStore } from "../stores/links";
 import { useDisplay } from 'vuetify';
@@ -87,7 +104,12 @@ const formData = ref({
 	url: "",
 	title: "",
 	description: "",
+	columnType: "",
 });
+
+const newColumnType = ref("");
+
+const columnTypes = computed(() => linkStore.uniqueColumnTypes);
 
 watch(
 	() => props.modelValue,
@@ -98,6 +120,7 @@ watch(
 				url: props.link.url,
 				title: props.link.title,
 				description: props.link.description || "",
+				columnType: props.link.column_type || "",
 			};
 		}
 	},
@@ -120,9 +143,19 @@ const resetForm = () => {
 		url: "",
 		title: "",
 		description: "",
+		columnType: "",
 	};
+	newColumnType.value = "";
 	if (form.value) {
 		form.value.resetValidation();
+	}
+};
+
+const addNewColumnType = () => {
+	if (newColumnType.value && !columnTypes.value.includes(newColumnType.value)) {
+		columnTypes.value.push(newColumnType.value);
+		formData.value.columnType = newColumnType.value;
+		newColumnType.value = "";
 	}
 };
 
@@ -137,6 +170,7 @@ const handleSubmit = async () => {
 		props.link.url = formData.value.url;
 		props.link.title = formData.value.title || new URL(formData.value.url).hostname;
 		props.link.description = formData.value.description;
+		props.link.columnType = formData.value.column_type;
 
 		await linkStore.updateLink(props.link);
 		closeModal();
