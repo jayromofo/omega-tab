@@ -67,11 +67,14 @@ const filteredResults = computed(() => {
 
   const commandResults = commands.filter(command => command.title.toLowerCase().includes(lowerQuery));
 
-  const searchEngineResults = searchEngineStore.searchEngines.filter(engine => engine.name.toLowerCase().includes(lowerQuery)).map(engine => ({
+  const searchEngineResults = searchEngineStore.searchEngines.map(engine => ({
     title: `Switch to ${engine.name}`,
     subtitle: `Change search engine to ${engine.name}`,
     action: () => searchEngineStore.setSearchEngine(engine.url)
-  }));
+  })).filter(engineResult => 
+    engineResult.title.toLowerCase().includes(lowerQuery) || 
+    engineResult.subtitle.toLowerCase().includes(lowerQuery)
+  );
 
   return [...linkResults, ...commandResults, ...searchEngineResults];
 });
