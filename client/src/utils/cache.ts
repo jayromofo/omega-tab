@@ -43,4 +43,16 @@ export const cache = {
       console.error("Cache clear failed:", error);
     }
   },
+  
+  clearAll: (): void => {
+    try {
+      // Clear all cache keys used by the application
+      Object.values(CacheKeys).forEach(key => {
+        localStorage.removeItem(key);
+      });
+      console.log("All cache cleared successfully");
+    } catch (error) {
+      console.error("Cache clear all failed:", error);
+    }
+  },
 };

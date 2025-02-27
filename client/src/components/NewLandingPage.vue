@@ -227,6 +227,7 @@
 import { ref, nextTick, onMounted } from "vue";
 import { Clerk } from "@clerk/clerk-js";
 import { FreePlanFeatures, PlusPlanFeatures } from "../data/plans";
+import { cache } from "@/utils/cache";
 
 const clerkPubKey = import.meta.env.VITE_CLERK_PUBLISHABLE_KEY;
 const clerk = new Clerk(clerkPubKey);
@@ -234,6 +235,9 @@ const showSignIn = ref(false);
 const PlusPlanUrl = import.meta.env.VITE_PLUS_PLAN_URL;
 
 const handleShowSignIn = () => {
+  // Clear all cache before signing in to ensure a fresh state
+  cache.clearAll();
+  
   showSignIn.value = true;
   nextTick(() => {
     const signInDiv = document.getElementById("sign-in");
@@ -244,6 +248,9 @@ const handleShowSignIn = () => {
 };
 
 const handleShowSignUp = () => {
+  // Clear all cache before signing up to ensure a fresh state
+  cache.clearAll();
+  
   showSignIn.value = true;
   nextTick(() => {
     const signInDiv = document.getElementById("sign-in");

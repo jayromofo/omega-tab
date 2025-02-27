@@ -1,3 +1,5 @@
+// test user: evanr@fdm4.com
+//TestPasswordForClerk
 mod brave;
 mod resend;
 mod stripe_client;

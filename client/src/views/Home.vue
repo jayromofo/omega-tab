@@ -320,15 +320,6 @@ const handleDeleteLink = (type: string, index: number) => {
   }
 };
 
-const handleShowSignIn = () => {
-  showSignIn.value = true;
-  nextTick(() => {
-    const signInDiv = document.getElementById("sign-in");
-    if (signInDiv) {
-      clerk.mountSignIn(signInDiv as HTMLDivElement);
-    }
-  });
-};
 
 const handleShowKeyboardShortcuts = (event: KeyboardEvent) => {
   if (event.key === "?") {

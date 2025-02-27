@@ -27,15 +27,20 @@
           <v-text-field v-model="fullName" label="Name" disabled class="mb-4" />
           <v-text-field v-model="email" label="Email" disabled class="mb-4" />
         </v-form>
-        <div v-for="setting in UserSettingsLabels" :key="setting.key" class="mb-4">
+        <div v-for="setting in UserSettingsLabels" :key="setting.key">
           <!-- Todo, when hover over a setting, provide more details -->
-          <v-switch
+            <v-switch
             v-if="setting.active"
             color="primary"
-            v-model="settingsStore.settings[setting.key]"
+            v-model="settingsStore.settings[setting.key as keyof UserSettings]"
             :label="setting.label"
-            @change="settingsStore.updateSetting(setting.key, settingsStore.settings[setting.key])"
-          />
+            @change="settingsStore.updateSetting(setting.key as keyof UserSettings, settingsStore.settings[setting.key as keyof UserSettings])"
+            :disabled="setting.plan === 'plus' && userPlan?.name !== 'plus'"
+            >
+            <template v-if="setting.plan === 'plus'" v-slot:label>
+              {{ setting.label }}&nbsp;<span class="kbd">+Plus Feature</span>
+            </template>
+            </v-switch>
         </div>
 
       </div>
