@@ -47,6 +47,23 @@
   const error = ref(false);
   const error_message = ref("");
 
+  // Refresh the token to ensure we have a fresh one before API calls
+  const refreshToken = async () => {
+    try {
+      const session = await clerk.session;
+      const token = await session?.getToken();
+      if (token) {
+        localStorage.setItem("token", token);
+        console.log("Token refreshed successfully");
+        return true;
+      }
+      return false;
+    } catch (err) {
+      console.error("Error refreshing token:", err);
+      return false;
+    }
+  };
+
   const confirmSubscription = async () => {
     try {
       await clerk.load();
@@ -57,6 +74,12 @@
 
       if (!isLoggedIn.value || !clerk.user) {
         throw new Error("User not logged in");
+      }
+
+      // Refresh token before making any API calls
+      const tokenRefreshed = await refreshToken();
+      if (!tokenRefreshed) {
+        throw new Error("Failed to refresh authentication token");
       }
 
       gotUser = await userStore.fetchUserData({
