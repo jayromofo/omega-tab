@@ -168,17 +168,9 @@
               <v-btn v-if="userPlan?.name !== 'free'" variant="elevated" color="red"
                 @click="showCancelDialog = true">Cancel
                 Plan</v-btn>
-              <v-btn @click="showPaymentTooltip = !showPaymentTooltip">
-                <v-icon size="x-large" icon="mdi-help-circle-outline" color="primary" />
-                <v-tooltip v-model="showPaymentTooltip" location="bottom">
-                  If you need to change your payment information either:<br/>
-                  <ol class="list-decimal list-inside">
-                    <li>Cancel your subscription and wait for the current term to end and re-subscribe</li>
-                    <li>Contact Support as evan.robertson77@gmail.com</li>
-                  </ol>
-                  <strong>Improved payment management will be coming soon.</strong>
-                </v-tooltip>
-              </v-btn>
+              <a :href="stripe_manage_url" target="_blank" rel="noopener noreferrer">
+                <v-btn v-if="userPlan?.name !== 'free'" variant="elevated">Manage Subscription</v-btn>
+              </a>
             </v-card-actions>
           </v-card-item>
         </v-card>
@@ -321,6 +313,7 @@
   const showSubscriptionCanceledDialog = ref(false);
   const subscriptionCanceledSuccess = ref(false);
   const subscriptionCanceledError = ref("");
+  const stripe_manage_url = import.meta.env.VITE_STRIPE_MANAGE_URL;
 
   // Token refresh interval
   let tokenRefreshInterval: number | undefined;
