@@ -9,7 +9,7 @@ mod user_jwt;
 
 use axum::{
     extract::{Extension, Json, Path, State},
-    http::{HeaderMap, StatusCode},
+    http::{HeaderMap, HeaderValue, Method, StatusCode},
     routing::{delete, get, post},
     Router,
 };
@@ -137,10 +137,50 @@ async fn runtime() {
 
     dotenv().ok();
 
-    let cors = CorsLayer::new()
-        .allow_origin(Any)
-        .allow_methods(Any)
-        .allow_headers(Any);
+    let cors = {
+        let environment =
+            std::env::var("ENVIRONMENT").unwrap_or_else(|_| "development".to_string());
+
+        match environment.as_str() {
+            "production" => CorsLayer::new()
+                .allow_origin("https://betternewtab.com".parse::<HeaderValue>().unwrap())
+                .allow_methods([
+                    Method::GET,
+                    Method::POST,
+                    Method::PUT,
+                    Method::DELETE,
+                    Method::OPTIONS,
+                ])
+                .allow_headers(Any),
+            "staging" => CorsLayer::new()
+                .allow_origin(
+                    "https://staging.betternewtab.com"
+                        .parse::<HeaderValue>()
+                        .unwrap(),
+                )
+                .allow_methods([
+                    Method::GET,
+                    Method::POST,
+                    Method::PUT,
+                    Method::DELETE,
+                    Method::OPTIONS,
+                ])
+                .allow_headers(Any),
+            _ => {
+                // Development mode
+                CorsLayer::new()
+                    .allow_origin("http://localhost:5173".parse::<HeaderValue>().unwrap())
+                    .allow_methods([
+                        Method::GET,
+                        Method::POST,
+                        Method::PUT,
+                        Method::DELETE,
+                        Method::OPTIONS,
+                    ])
+                    .allow_headers(Any)
+            }
+        }
+    };
 
     let client = reqwest::Client::new();
 
@@ -439,7 +479,7 @@ async fn confirm_handler(
                 updates.insert(
                     "current_period_end".to_string(),
                     json!(Utc
-                        .timestamp(subscription.current_period_end, 0)
+                        .timestamp_opt(subscription.current_period_end, 0).unwrap()
                         .to_rfc3339()),
                 );
                 updates.insert("stripe_subscription_id".to_string(), json!(subscription.id));
@@ -628,10 +668,10 @@ async fn create_link(
         })?;
 
     let metadata_on = headers
-            .get("X-Fetch-Metadata")
-            .and_then(|m| m.to_str().ok())
-            .map(|s| s.to_lowercase() == "true")
-            .unwrap_or(false);
+        .get("X-Fetch-Metadata")
+        .and_then(|m| m.to_str().ok())
+        .map(|s| s.to_lowercase() == "true")
+        .unwrap_or(false);
 
     // Validate the JWT token
     let user_claims = match user_jwt::validate_jwt(auth_token) {

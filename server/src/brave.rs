@@ -11,14 +11,14 @@ pub struct Brave {
 #[derive(Debug, Deserialize)]
 pub struct SuggestResponse {
     #[serde(rename = "type")]
-    pub response_type: String,
-    pub query: Query,
+    pub _response_type: String,
+    pub _query: Query,
     pub results: Vec<Suggestion>,
 }
 
 #[derive(Debug, Deserialize)]
 pub struct Query {
-    pub original: String,
+    pub _original: String,
 }
 
 #[derive(Debug, Deserialize, Serialize)]
