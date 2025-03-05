@@ -157,11 +157,13 @@
             <v-btn v-bind="props" class="!w-[42px] !h-[42px] bg-white" icon="mdi-help" variant="tonal" aria-label="Help menu" />
           </template>
           <v-list class="w-64" lines="two">
-            <v-list-item @click="router.push('/help/getting-started')">
-              <v-list-item-title>
-                <v-icon icon="mdi-rocket-launch" />
-                Getting Started
-              </v-list-item-title>
+            <v-list-item @click="showFeedbackDialog = false">
+              <a href="/docs/getting-started">
+                <v-list-item-title>
+                  <v-icon icon="mdi-rocket-launch" />
+                  Getting Started
+                </v-list-item-title>
+              </a>
             </v-list-item>
             <v-list-item @click="showHelpDialog = true">
               <v-list-item-title>
@@ -172,14 +174,14 @@
             <v-list-item @click="router.push('/plans')">
               <v-list-item-title>
                 <v-icon icon="mdi-plus" />
-                Better New Tab Plus
+                Better New Tab Plus & Pro
               </v-list-item-title>
             </v-list-item>
-            <v-list-item>
-              <a href="docs/">
+            <v-list-item @click="showFeedbackDialog = false">
+              <a href="/docs/">
                 <v-list-item-title>
                   <v-icon icon="mdi-book" />
-                  Help Center
+                  Guides
                 </v-list-item-title>
               </a>
             </v-list-item>
@@ -466,7 +468,7 @@ const refreshToken = async () => {
       console.log("Detected inactivity period, checking session validity");
       await session.getToken(); // Force a check of the session
     }
-    
+
     // This will trigger a token refresh if needed
     const token = await session.getToken({ leewayInSeconds: 30 }); // 30 seconds leeway to handle clock skew
     if (token) {
@@ -499,12 +501,12 @@ const refreshToken = async () => {
 const startTokenRefreshInterval = () => {
   // Refresh token every 4 minutes (Clerk tokens typically expire after 5 minutes of inactivity)
   tokenRefreshInterval = window.setInterval(refreshToken, 4 * 60 * 1000);
-  
+
   // Setup activity tracking to detect user presence
   const trackUserActivity = () => {
     lastActivityTimestamp = Date.now();
   };
-  
+
   // Track various user activities
   window.addEventListener('mousemove', trackUserActivity);
   window.addEventListener('keydown', trackUserActivity);
@@ -521,7 +523,7 @@ const stopTokenRefreshInterval = () => {
   if (tokenRefreshInterval) {
     clearInterval(tokenRefreshInterval);
   }
-  
+
   // Remove activity tracking
   window.removeEventListener('mousemove', () => {});
   window.removeEventListener('keydown', () => {});
