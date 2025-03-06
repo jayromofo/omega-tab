@@ -42,6 +42,7 @@
             </template>
             </v-switch>
         </div>
+        <v-btn @click="clearSearchHistory">Clear Search History</v-btn>
 
       </div>
 
@@ -280,8 +281,9 @@
   import { useDisplay } from 'vuetify';
   import api from "@/services/api";
   import { Clerk } from "@clerk/clerk-js";
+  import { cache, CacheKeys } from "@/utils/cache";
+  
 
-// In Settings.vue setup
   const userStore = useUserStore();
   const feedbackStore = useFeedbackStore();
   const settingsStore = useUserSettingsStore();
@@ -527,6 +529,10 @@
 
   const reportError = () => {
     window.location.href = "mailto:evan.robertson77@gmail.com";
+  };
+
+  const clearSearchHistory = () => {
+    cache.clear(CacheKeys.SEARCH_HISTORY);
   };
 
   onMounted(() => {

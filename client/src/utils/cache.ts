@@ -1,3 +1,5 @@
+import type SearchHistory from "../types/SearchHistory";
+
 const CACHE_PREFIX = "betternewtab_";
 const CACHE_VERSION = "v1_";
 
@@ -7,6 +9,7 @@ export const CacheKeys = {
   SETTINGS: `${CACHE_PREFIX}${CACHE_VERSION}settings`,
   SEARCH_ENGINE: `${CACHE_PREFIX}${CACHE_VERSION}search_engine`,
   STAGING_LOGGED_IN: `${CACHE_PREFIX}${CACHE_VERSION}staging_logged_in`,
+  SEARCH_HISTORY: `${CACHE_PREFIX}${CACHE_VERSION}search_history`,
 } as const;
 
 export const cache = {
@@ -34,6 +37,31 @@ export const cache = {
     } catch (error) {
       console.error("Cache read failed:", error);
       return null;
+    }
+  },
+
+  // search history uses it's own timestamp
+  get_search_history: <T>(key: string): T | null => {
+    try {
+      const item = localStorage.getItem(key);
+      if (!item) return null;
+      return item;
+    } catch (error) {
+      console.error("Cache read failed:", error);
+      return null;
+    }
+  },
+
+  // search history is stored unqiuely
+  set_search_history: <T>(key: string, data: T): void => {
+    try {
+      localStorage.setItem(
+        key,        
+        data,
+      );
+    }
+    catch (error) {
+      console.error("Cache write failed:", error);
     }
   },
 

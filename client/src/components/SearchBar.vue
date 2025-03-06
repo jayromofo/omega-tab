@@ -100,15 +100,16 @@ import { useUserStore } from "@/stores/user";
 import { openUrl } from '../utils/openUrl';
 import { useDisplay } from 'vuetify';
 import api from "@/services/api";
-import { Axios, AxiosError } from "axios";
+import { AxiosError } from "axios";
+import { CacheKeys, cache } from "@/utils/cache";
 
 const AUTO_SUGGEST_ON = import.meta.env.VITE_AUTO_SUGGEST_ON === 'true';
 const mobile = useDisplay().smAndDown;
 
 interface HistoryItem {
 	query: string;
+	freq: string;
 	timestamp: number;
-	engine: string;
 }
 
 // consts and refs
@@ -130,6 +131,7 @@ const focusedIndex = ref(-1);
 const fuseInstance = ref<Fuse<Link> | null>(null);
 const textareaHeight = ref(50);
 const maxHeight = 300;
+const MAX_HISTORY_ENTRIES = Number.parseInt(import.meta.env.VITE_MAX_HISTORY_ENTRIES || '500');
 
 // Fuzzy search setup
 const fuzzyResults = ref<FuseResult<Link>[]>([]);
@@ -231,7 +233,7 @@ const historyFuse = computed(
 // functions
 const loadSearchHistory = () => {
 	try {
-		const stored = localStorage.getItem(STORAGE_KEY);
+		const stored = cache.get_search_history(CacheKeys.SEARCH_HISTORY);
 		if (stored) {
 			const parsed: HistoryItem[] = JSON.parse(stored);
 			// Sort by timestamp and get just the queries
@@ -250,37 +252,43 @@ const addToHistory = (query: string) => {
 	if (!query || !query.trim()) return;
 
 	try {
-		const stored = localStorage.getItem(STORAGE_KEY);
+		const stored = cache.get_search_history(CacheKeys.SEARCH_HISTORY);
 		const history: HistoryItem[] = stored ? JSON.parse(stored) : [];
 
-		// Remove any existing entry with the same query
-		const filtered = history.filter(
-			(item) => item.query.toLowerCase() !== query.toLowerCase(),
+		// Check if query already exists
+		const existingIndex = history.findIndex(
+			(item) => item.query.toLowerCase() === query.toLowerCase()
 		);
 
-		// Add new entry
-		filtered.unshift({
-			query,
-			timestamp: Date.now(),
-			engine: selectedEngine.value,
-		});
+		if (existingIndex !== -1) {
+			// Increment frequency count
+			history[existingIndex].freq = (parseInt(history[existingIndex].freq || '0') + 1).toString();			
+			
+			// Move this item to the beginning of the array
+			const item = history.splice(existingIndex, 1)[0];
+			history.unshift(item);
+		} else {
+			// Add new entry
+			history.unshift({
+				query,
+				freq: '1',
+				timestamp: Date.now()
+			});
 
-		// Keep only MAX_STORED_HISTORY items
-		const trimmed = filtered.slice(0, MAX_STORED_HISTORY);
+			// If we've exceeded the maximum, remove the oldest entry
+			if (history.length > MAX_HISTORY_ENTRIES) {
+				history.pop();
+			}
+		}
 
-		// Save to localStorage
-		localStorage.setItem(STORAGE_KEY, JSON.stringify(trimmed));
+		// Save to local Storage
+		cache.set_search_history(CacheKeys.SEARCH_HISTORY, JSON.stringify(history));
 
 		// Update the reactive history
-		searchHistory.value = trimmed.map((item) => item.query);
+		searchHistory.value = history.map((item) => item.query);
 	} catch (error) {
 		console.error("Error saving to search history:", error);
 	}
-};
-
-const clearHistory = (query: string) => {
-	searchHistory.value = [];
-	localStorage.removeItem(STORAGE_KEY);
 };
 
 // Add a function to prepare URL (add protocol if needed)
