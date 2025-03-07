@@ -263,11 +263,11 @@
 
             <!-- Footer Links -->
             <div class="hidden md:flex space-x-8 border border-gray-300 px-6 py-4 rounded-full">
-              <a href="#" class="text-gray-300 hover:text-white transition-colors">About</a>
+              <a href="/docs/getting-started" class="text-gray-300 hover:text-white transition-colors">Getting Started</a>
               <span class="text-gray-300 cursor-default">•</span>
-              <a href="#" class="text-gray-300 hover:text-white transition-colors">Privacy Policy</a>
+              <a href="/privacy-policy" class="text-gray-300 hover:text-white transition-colors">Privacy Policy</a>
               <span class="text-gray-300 cursor-default">•</span>
-              <a href="#" class="text-gray-300 hover:text-white transition-colors">Terms of Service</a>
+              <a href="/terms-of-service" class="text-gray-300 hover:text-white transition-colors">Terms of Service</a>
               <span class="text-gray-300 cursor-default">•</span>
               <a href="/contact" class="text-gray-300 hover:text-white transition-colors">Contact</a>
             </div>
@@ -275,10 +275,10 @@
             <!-- Social Media Links -->
             <div class="flex items-center space-x-4">
               <a href="#" class="text-gray-300 hover:text-white transition-colors">
-                <v-icon icon="mdi-facebook" />
+                <v-icon icon="mdi-twitter" />
               </a>
               <a href="#" class="text-gray-300 hover:text-white transition-colors">
-                <v-icon icon="mdi-twitter" />
+                <v-icon icon="mdi-github" />
               </a>
               <a href="#" class="text-gray-300 hover:text-white transition-colors">
                 <v-icon icon="mdi-linkedin" />
