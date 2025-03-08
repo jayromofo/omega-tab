@@ -458,7 +458,6 @@ const refreshToken = async () => {
 
     // If inactive for too long, force a more thorough session check
     if (inactiveTime > inactiveThreshold) {
-      console.log("Detected inactivity period, checking session validity");
       await session.getToken(); // Force a check of the session
     }
 
@@ -466,7 +465,6 @@ const refreshToken = async () => {
     const token = await session.getToken({ leewayInSeconds: 30 }); // 30 seconds leeway to handle clock skew
     if (token) {
       localStorage.setItem("token", token);
-      console.log("Token refreshed successfully");
     } else {
       console.warn("Failed to get token during refresh");
       // Try a more direct approach to refresh if the token wasn't returned
@@ -482,7 +480,6 @@ const refreshToken = async () => {
         const token = await newSession.getToken();
         if (token) {
           localStorage.setItem("token", token);
-          console.log("Token refreshed after reload");
         }
       }
     } catch (reloadError) {

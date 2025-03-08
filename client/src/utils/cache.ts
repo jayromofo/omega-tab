@@ -76,7 +76,6 @@ export const cache = {
       for (const key of Object.values(CacheKeys)) {
         localStorage.removeItem(key);
       }
-      console.log("All cache cleared successfully");
     } catch (error) {
       console.error("Cache clear all failed:", error);
     }

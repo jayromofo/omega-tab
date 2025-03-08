@@ -62,7 +62,6 @@
       const token = await session.getToken({ leewayInSeconds: 30 });
       if (token) {
         localStorage.setItem("token", token);
-        console.log("Token refreshed successfully");
         return true;
       } else {
         console.warn("Failed to get token during refresh");
@@ -71,7 +70,6 @@
         const retryToken = await session.getToken();
         if (retryToken) {
           localStorage.setItem("token", retryToken);
-          console.log("Token refreshed after retry");
           return true;
         }
       }
@@ -86,7 +84,6 @@
           const token = await newSession.getToken();
           if (token) {
             localStorage.setItem("token", token);
-            console.log("Token refreshed after clerk reload");
             return true;
           }
         }

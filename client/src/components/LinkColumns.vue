@@ -86,7 +86,6 @@ const focusLinkCard = (columnType: string, index: number) => {
 			);
 			
 			if (targetLink && targetLink.$el) {
-				console.log(targetLink.$el);
 				const anchorElement = targetLink.$el.querySelector('a');
 				if (anchorElement) {
 					anchorElement.focus();
