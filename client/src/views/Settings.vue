@@ -486,6 +486,16 @@
       throw new Error("User email not found");
     }
     try {
+      let reasons: CancellationReason | null = feedbackStore.reasons as CancellationReason;
+      let feedback_comment: String | null = feedbackStore.feedbackComment;
+      console.log("reasons", reasons);
+      console.log("feedback_comment", feedback_comment);      
+      if (reasons === "") {
+        reasons = null;
+      }
+      if (feedback_comment === "") {
+        feedback_comment = null;
+      }
       const response = await api.post(API.CANCEL_SUBSCRIPTION, {
         reasons: feedbackStore.reasons as CancellationReason,
         feedback_comment: feedbackStore.feedbackComment,
