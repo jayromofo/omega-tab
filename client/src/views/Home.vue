@@ -4,8 +4,7 @@
       <v-progress-circular indeterminate />
     </div>
     <div v-else-if="isLoggedIn && !isLoading">
-      <header
-        class="border-b border-gray-700 bg-white/5">
+      <header class="border-b border-gray-700 bg-white/5">
         <v-container>
           <v-row class="items-center">
             <v-col>
@@ -16,7 +15,8 @@
             <v-col class="flex justify-end">
               <div class="flex rounded-full items-center">
                 <button id="user-button" aria-label="User account"></button>
-                <v-btn icon="mdi-cog" @click="router.push('/settings');" class="!w-[42px] !h-[42px] ms-8" aria-label="Settings" />
+                <v-btn icon="mdi-cog" @click="router.push('/settings');" class="!w-[42px] !h-[42px] ms-8"
+                  aria-label="Settings" />
               </div>
             </v-col>
           </v-row>
@@ -25,36 +25,45 @@
       <main>
         <v-container>
           <section aria-label="Search">
-            <SearchBar :tools="tools" :docs="docs" />
+            <SearchBar />
           </section>
           <section aria-label="Link columns">
-            <LinkColumns :tools="toolLinks" :docs="docLinks" :userId="userId" :maxPins="userStore.userPlan?.max_pins || 6"
-              :canAddLinks="canShowAddLink" @link-deleted="handleDeleteLink"
-              :isPlanFree="userStore.userPlan?.name === 'free'" />
+            {{ userStore.userPlan?.max_pins }}
+            <LinkColumns :userId="userId"
+              :maxPins="userStore.userPlan?.max_pins || 6" :canAddLinks="canShowAddLink" :isPlanFree="userStore.userPlan?.name === 'free'" />
           </section>
           <v-dialog v-model="showHelpDialog" max-width="900px">
             <v-card>
               <v-card-title class="headline">Keyboard Shortcuts</v-card-title>
               <v-card-text>
                 <h4 class="text-xl mb-4">Open Links</h4>
-                <div v-if="linkShortcuts.length" class="border p-4 rounded-lg mb-4">
+                <div v-if="uniqueColumnTypes.length" class="border p-4 rounded-lg mb-4">
                   <v-row>
                     <v-col>
-                      <ul>
-                        <li v-for="(shortcut, index) in linkShortcuts" :key="shortcut.index">
-                          <div class="grid grid-cols-3 gap-2">
-                            <div class="col-span-2">
-                              {{ shortcut.description }}
+                      <div v-for="(columnType, colIndex) in uniqueColumnTypes" :key="columnType">
+                        <ul>
+                          <li v-for="(link, index) in getLinksByColumnType(columnType)" :key="link.order_index">
+                            <div v-if="colIndex < 2">
+                              <div class="grid grid-cols-3 gap-2">
+                                <div class="col-span-2">
+                                  {{ link.title }}
+                                </div>
+                                <div class="col-span-1">
+                                  <span v-if="getShortcut(columnType).includes('+')" class="mr-2">
+                                    <span class="kbd">{{ getShortcut(columnType).split('+')[0] }}</span>
+                                    +
+                                    <span class="kbd">{{ getShortcut(columnType).split('+')[1] }}</span>
+                                  </span>
+                                  <span v-else class="kbd">{{ getShortcut(columnType) }}</span>
+                                  +
+                                  <span class="kbd">{{ index + 1 }}</span>
+                                </div>
+                              </div>
+                              <v-divider v-if="colIndex < 1" class="my-4"></v-divider>
                             </div>
-                            <div class="col-span-1">
-                              <span class="kbd">{{ shortcut.command }}</span>
-                              +
-                              <span class="kbd">{{ shortcut.index }}</span>
-                            </div>
-                          </div>
-                          <v-divider v-if="index + 1 !== linkShortcuts.length" class="my-4"></v-divider>
-                        </li>
-                      </ul>
+                          </li>
+                        </ul>
+                      </div>
                     </v-col>
                   </v-row>
                 </div>
@@ -154,7 +163,8 @@
       <div class="fixed bottom-4 right-4">
         <v-menu location="top">
           <template v-slot:activator="{ props }">
-            <v-btn v-bind="props" class="!w-[42px] !h-[42px] bg-white" icon="mdi-help" variant="tonal" aria-label="Help menu" />
+            <v-btn v-bind="props" class="!w-[42px] !h-[42px] bg-white" icon="mdi-help" variant="tonal"
+              aria-label="Help menu" />
           </template>
           <v-list class="w-64" lines="two">
             <v-list-item @click="showFeedbackDialog = false">
@@ -229,7 +239,7 @@ import LinkColumns from "../components/LinkColumns.vue";
 import SearchBar from "../components/SearchBar.vue";
 import Feedback from "../components/Feedback.vue";
 import { useUserStore } from "../stores/user";
-import { useLinksStore } from "../stores/links";
+import { useLinksStore, SHORTCUT_MAPPINGS } from "../stores/links";
 import { useFeedbackStore } from "../stores/feedback";
 import { useUserSettingsStore } from "../stores/settings";
 import { storeToRefs } from "pinia";
@@ -318,9 +328,6 @@ const userStore = useUserStore();
 const linksStore = useLinksStore();
 const feedbackStore = useFeedbackStore();
 const userSettingsStore = useUserSettingsStore();
-// Convert store properties to refs for reactivity
-const { toolLinks, docLinks } = storeToRefs(linksStore)
-const { links } = storeToRefs(linksStore)
 
 // Initialize services
 const router = useRouter();
@@ -344,27 +351,19 @@ let lastActivityTimestamp: number = Date.now();
 // User and data state
 const userId = ref<string | null>(null);
 const currentRole = ref("member");
-const tools = ref<Link[]>([]);
-const docs = ref<Link[]>([]);
+const uniqueColumnTypes = computed(() => linksStore.uniqueColumnTypes);
 
-// just for sorting shortcuts
-const links_by_column_type = computed(() => {
-  return [...links.value].sort((a, b) => {
-    if (a.column_type !== b.column_type) {
-      return b.column_type.localeCompare(a.column_type);
-    }
-    return a.order_index - b.order_index;
-  })
-});
+const getShortcut = (columnType: string) => {
+  const columnIndex = uniqueColumnTypes.value.indexOf(columnType);
+  if (columnIndex >= 0 && columnIndex < SHORTCUT_MAPPINGS.length) {
+    return SHORTCUT_MAPPINGS[columnIndex].label;
+  }
+  return '';
+};
 
-// Computed properties
-const linkShortcuts = computed(() =>
-  links_by_column_type.value.map((link, index) => ({
-    command: link.column_type === "tools" ? "Ctrl" : "Alt",
-    index: `${index + 1}`,
-    description: `Open ${link.title}`,
-  })),
-);
+const getLinksByColumnType = (columnType: string) => {
+  return linksStore.links.filter(link => link.column_type === columnType);
+};
 
 const canShowAddLink = computed(() => {
   if (userStore.userPlan?.name === "free" || userStore.userPlan?.name === "plus") {
@@ -387,24 +386,6 @@ const canShowAddLink = computed(() => {
 
   return false;
 });
-
-const handleDeleteLink = (type: string, index: number) => {
-  console.log("Deleting link", type, index);
-  if (type === "tool") {
-    tools.value.splice(index, 1);
-    // Reorder remaining tools
-    tools.value.forEach((tool, idx) => {
-      tool.order_index = idx;
-    });
-  } else {
-    docs.value.splice(index, 1);
-    // Reorder remaining docs
-    docs.value.forEach((doc, idx) => {
-      doc.order_index = idx;
-    });
-  }
-};
-
 
 const handleShowKeyboardShortcuts = (event: KeyboardEvent) => {
   if (event.key === "?") {
@@ -524,11 +505,11 @@ const stopTokenRefreshInterval = () => {
   }
 
   // Remove activity tracking
-  window.removeEventListener('mousemove', () => {});
-  window.removeEventListener('keydown', () => {});
-  window.removeEventListener('click', () => {});
-  window.removeEventListener('scroll', () => {});
-  window.removeEventListener('focus', () => {});
+  window.removeEventListener('mousemove', () => { });
+  window.removeEventListener('keydown', () => { });
+  window.removeEventListener('click', () => { });
+  window.removeEventListener('scroll', () => { });
+  window.removeEventListener('focus', () => { });
 };
 
 // Lifecycle hooks

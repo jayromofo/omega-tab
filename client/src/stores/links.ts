@@ -4,8 +4,8 @@ import { useUserSettingsStore } from "@/stores/settings";
 import { useUserStore } from "@/stores/user";
 import type { CreateLinkRequest, Link, UpdateLinkRequest } from "@/types/Link";
 import { CacheKeys, cache } from "@/utils/cache";
+import type { AxiosError } from "axios";
 import { defineStore } from "pinia";
-import { AxiosError } from "axios";
 
 // Define shortcut mapping for columns
 export const SHORTCUT_MAPPINGS = [
@@ -27,10 +27,6 @@ export const useLinksStore = defineStore("links", {
   }),
 
   getters: {
-    toolLinks: (state) =>
-      state.links.filter((link) => link.column_type === "tools"),
-    docLinks: (state) =>
-      state.links.filter((link) => link.column_type === "docs"),
     uniqueColumnTypes: (state) => {
       const columnTypes = new Set(state.links.map((link) => link.column_type));
       return Array.from(columnTypes);
@@ -99,7 +95,7 @@ export const useLinksStore = defineStore("links", {
             "X-User-Authorization": authToken,
             "X-Fetch-Metadata": metadata_on,
           },
-        });        
+        });
         if (response.status !== 201) {
           throw new Error(`Failed to create link ${response.status}`);
         }

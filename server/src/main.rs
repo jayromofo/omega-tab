@@ -1617,6 +1617,8 @@ async fn get_user_data_handler(
 ) -> Result<Json<UserDataResponse>, StatusCode> {
     let user_email = user_context.email.clone();
     let user_id = user_context.user_id.clone();
+    let mut new_user_created = false;
+    let mut settings: Option<supabase::UserSettings> = None;
     println!("Fetching user data!");
 
     sentry::configure_scope(|scope| {
@@ -1660,6 +1662,7 @@ async fn get_user_data_handler(
                 tracing::error!("Failed to create user: {:?}", e);
                 StatusCode::INTERNAL_SERVER_ERROR
             })?;
+            new_user_created = true;
             let create_settings_result = create_user_default_settings(&new_user).await;
             if let Err(e) = create_settings_result {
                 if e == StatusCode::INTERNAL_SERVER_ERROR {
@@ -1668,6 +1671,8 @@ async fn get_user_data_handler(
                         new_user.email
                     );
                 }
+            } else {
+                settings = Some(create_settings_result.unwrap());
             }
             new_user
         }
@@ -1712,18 +1717,21 @@ async fn get_user_data_handler(
     };
 
     tracing::info!("Fetching user settings for {}", user_id);
-    let settings = match supabase.get_user_settings(&user_id).await {
-        Ok(settings) => Some(settings),
-        Err(_) => match create_user_default_settings(&user).await {
-            Ok(new_settings) => Some(new_settings),
-            Err(e) => {
-                if e == StatusCode::INTERNAL_SERVER_ERROR {
-                    tracing::error!("Failed to create user settings for user: {}", user.email);
+    // only fetch settings if this is an existing user, otherwise we already created the default settings for new users
+    if !new_user_created {
+        settings = match supabase.get_user_settings(&user_id).await {
+            Ok(settings) => Some(settings),
+            Err(_) => match create_user_default_settings(&user).await {
+                Ok(new_settings) => Some(new_settings),
+                Err(e) => {
+                    if e == StatusCode::INTERNAL_SERVER_ERROR {
+                        tracing::error!("Failed to create user settings for user: {}", user.email);
+                    }
+                    None
                 }
-                None
-            }
-        },
-    };
+            },
+        };
+    }
 
     tracing::info!("Fetching links for user {}", user_id);
     let links = supabase.get_links(&user_id, "user").await.map_err(|e| {

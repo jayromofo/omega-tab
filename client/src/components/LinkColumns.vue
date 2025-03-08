@@ -1,7 +1,7 @@
 <template>
 	<div class="link-card-grid">
 		<div v-if="uniqueColumnTypes.length === 0" class="single-column">
-			<AddLinkCard :columnType="'default'" :tools="props.tools" :docs="props.docs" :userId="props.userId"
+			<AddLinkCard :columnType="'default'" :userId="props.userId"
 				:maxPins="props.maxPins" :isPlanFree="isPlanFree" />
 		</div>
 		<div v-else v-for="columnType in uniqueColumnTypes" :key="columnType" :class="columnClass">
@@ -10,7 +10,7 @@
 				:icon="link.icon ?? ''" :title="link.title" :description="link.description ?? ''" :link="link.url"
 				:index="index" :shortcut="getShortcut(columnType)" class="mb-2" :onDelete="() => handleDeleteLink(link)"
 				:onEdit="() => handleEditLink(link)" />
-			<AddLinkCard v-if="canAddLinks" :columnType="columnType" :tools="props.tools" :docs="props.docs"
+			<AddLinkCard v-if="canAddLinks" :columnType="columnType"
 				:userId="props.userId" :maxPins="props.maxPins" :isPlanFree="isPlanFree" />
 		</div>
 		<EditLinkModal v-model="showEditModal" :link="editingLink" />
@@ -30,8 +30,6 @@ const showEditModal = ref(false);
 const editingLink = ref<Link | undefined>();
 
 const props = defineProps<{
-	tools: Link[];
-	docs: Link[];
 	canAddLinks?: boolean;
 	userId: string | null;
 	maxPins: number;

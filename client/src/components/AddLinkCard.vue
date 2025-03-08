@@ -124,8 +124,6 @@
 
 	const props = defineProps<{
 		columnType: string;
-		tools: Link[];
-		docs: Link[];
 		userId: string | null;
 		maxPins: number;
 		isPlanFree: boolean;
@@ -151,7 +149,7 @@
 	});
 
 	const isAtMaxPins = computed(() => {
-		return props.tools.length + props.docs.length >= props.maxPins;
+		return linksStore.links.length >= props.maxPins;
 	});
 
 	const handleClick = () => {
@@ -163,8 +161,7 @@
 	};
 
 	const openModal = () => {
-		const totalPins = props.tools.length + props.docs.length;
-		if (totalPins >= props.maxPins) {
+		if (linksStore.links.length >= props.maxPins) {
 			alert(
 				`You've reached your maximum number of pins (${props.maxPins}). Please upgrade your plan for more.`,
 			);
@@ -222,8 +219,7 @@
 				title: formData.value.title,
 				description: formData.value.description,
 				url: formData.value.url,
-				next_order_index:
-					props.columnType === "tools" ? linksStore.toolLinks.length + 1 : linksStore.docLinks.length + 1,
+				next_order_index: linksStore.links.length + 1,
 				owner_id: userStore.userId,
 				owner_type: "user",
 				column_type: formData.value.columnType,
