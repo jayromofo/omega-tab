@@ -88,7 +88,7 @@ export default defineConfig({
     // Better caching with content hash
     cssCodeSplit: true,
     rollupOptions: {
-      external: ['vue', 'vue-router', 'pinia', 'vuetify'],
+      // external: ['vue', 'vue-router', 'pinia', 'vuetify'],
       output: {
         manualChunks: (id) => {
           // Vendor chunks
