@@ -130,11 +130,16 @@ fn disable_premium_features(settings_blob: &mut serde_json::Value) {
 }
 
 fn main() {
+    dotenv().ok();
+    let sample_rate = std::env::var("TRACING_SAMPLE_RATE")
+        .unwrap_or_else(|_| "0.2".to_string())
+        .parse::<f32>()
+        .unwrap_or(0.2);
     let _guard = sentry::init(("https://dacfc75c4bbf7f8a70134067d078c21a@o4508773394153472.ingest.us.sentry.io/4508773395857408", sentry::ClientOptions {
         release: sentry::release_name!(),
 
         // 1.0 is send 100% of traces to Sentry, 0.2 is 20%, etc.
-        traces_sample_rate: 0.2,
+        traces_sample_rate: sample_rate,
 
         ..sentry::ClientOptions::default()
     }));
@@ -158,7 +163,6 @@ fn main() {
 async fn runtime() {
     tracing::info!("Starting request");
 
-    dotenv().ok();
 
     let cors = {
         let environment =
@@ -1641,7 +1645,8 @@ async fn get_user_data_handler(
     let user_id = user_context.user_id.clone();
     let mut new_user_created = false;
     let mut settings: Option<supabase::UserSettings> = None;
-    println!("Fetching user data!");
+    println!("Fetching user data for {}", user_email);
+    tracing::info!("Fetching user data for {}", user_email);
 
     sentry::configure_scope(|scope| {
         scope.set_user(Some(sentry::User {
@@ -1652,28 +1657,26 @@ async fn get_user_data_handler(
         scope.set_tag("http.method", "GET");
     });
 
-    println!("Fetching user data!");
-    let user_id = user_context.user_id.clone();
-    let user_email = user_context.email.clone();
-    tracing::info!("Fetching user data for {}", user_email);
-
     let supabase = Supabase::new(
         std::env::var("SUPABASE_URL").expect("SUPABASE_URL must be set"),
         std::env::var("SUPABASE_KEY").expect("SUPABASE_KEY must be set"),
     )
     .map_err(|e| {
         tracing::error!("Error initializing Supabase client: {:?}", e);
+        println!("Error initializing Supabase client: {:?}", e);
         StatusCode::INTERNAL_SERVER_ERROR
     })?;
 
     // Get or create user
     let user = match supabase.get_user(&user_id).await {
         Ok(user) => {
-            tracing::info!("Found existing user: {}", user.email);
+            tracing::info!("Found existing user: {}", user.email);            
+            println!("Found existing user: {}", user.email);
             user
         }
         Err(_) => {
             tracing::info!("Creating new user: {}", user_email);
+            println!("Creating new user: {}", user_email);
             let new_user = supabase::User {
                 id: user_id.clone(),
                 email: user_email.clone(),
@@ -1682,6 +1685,7 @@ async fn get_user_data_handler(
             };
             supabase.create_user(new_user.clone()).await.map_err(|e| {
                 tracing::error!("Failed to create user: {:?}", e);
+                println!("Failed to create user: {:?}", e);
                 StatusCode::INTERNAL_SERVER_ERROR
             })?;
             new_user_created = true;
@@ -1692,6 +1696,7 @@ async fn get_user_data_handler(
                         "Failed to create user settings for user: {}",
                         new_user.email
                     );
+                    println!("Failed to create user settings for user: {}", new_user.email);
                 }
             } else {
                 settings = Some(create_settings_result.unwrap());
@@ -1701,6 +1706,7 @@ async fn get_user_data_handler(
     };
 
     tracing::info!("Fetching subscription info for {}", user_email);
+    println!("Fetching subscription info for {}", user_email);
     
     // Track if the subscription is active
     let mut has_active_subscription = false;
@@ -1752,6 +1758,7 @@ async fn get_user_data_handler(
     };
 
     tracing::info!("Fetching user settings for {}", user_id);
+    println!("Fetching user settings for {}", user_id);
     // only fetch settings if this is an existing user, otherwise we already created the default settings for new users
     if !new_user_created {
         settings = match supabase.get_user_settings(&user_id).await {
@@ -1761,6 +1768,7 @@ async fn get_user_data_handler(
                 Err(e) => {
                     if e == StatusCode::INTERNAL_SERVER_ERROR {
                         tracing::error!("Failed to create user settings for user: {}", user.email);
+                        println!("Failed to create user settings for user: {}", user.email);
                     }
                     None
                 }
@@ -1785,8 +1793,10 @@ async fn get_user_data_handler(
         
         if let Err(e) = supabase.update_user_settings(&user_id, updates).await {
             tracing::error!("Failed to update user settings after disabling premium features: {:?}", e);
+            println!("Failed to update user settings after disabling premium features: {:?}", e);
         } else {
             tracing::info!("Successfully disabled premium features for user with expired subscription");
+            println!("Successfully disabled premium features for user with expired subscription");
         }
         
         // Update the settings value for the response
@@ -1794,8 +1804,10 @@ async fn get_user_data_handler(
     }
 
     tracing::info!("Fetching links for user {}", user_id);
+    println!("Fetching links for user {}", user_id);
     let links = supabase.get_links(&user_id, "user").await.map_err(|e| {
         tracing::error!("Failed to fetch links: {:?}", e);
+        println!("Failed to fetch links: {:?}", e);
         StatusCode::INTERNAL_SERVER_ERROR
     })?;
 
@@ -1820,10 +1832,15 @@ async fn get_user_data_handler(
 
     let auth_token = user_jwt::generate_jwt(&user_id, &plan_name).map_err(|e| {
         tracing::error!("Failed to generate JWT token: {:?}", e);
+        println!("Failed to generate JWT token: {:?}", e);
         StatusCode::INTERNAL_SERVER_ERROR
     })?;
 
     tracing::info!(
+        "Successfully assembled user data response for {}",
+        user_email
+    );
+    println!(
         "Successfully assembled user data response for {}",
         user_email
     );
