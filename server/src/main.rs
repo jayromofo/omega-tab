@@ -1318,7 +1318,7 @@ async fn suggest_handler(
 
     let brave = Brave::new(
         std::env::var("BRAVE_SUGGEST_URL").expect("BRAVE_URL must be set"),
-        std::env::var("BRAVE_TEST_KEY").expect("BRAVE_API_KEY must be set"),
+        std::env::var("BRAVE_API_KEY").expect("BRAVE_API_KEY must be set"),
     )
     .map_err(|e| {
         println!("Error initializing Brave client: {:?}", e);
