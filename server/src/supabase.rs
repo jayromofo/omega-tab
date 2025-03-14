@@ -2,6 +2,8 @@ use anyhow::Result;
 use reqwest::{header::HeaderMap, Client};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+use sqlx::postgres::PgPoolOptions;
+use sqlx::postgres::PgPool;
 
 // Type definitions matching Database.ts
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -87,16 +89,21 @@ pub struct Supabase {
     client: Client,
     url: String,
     api_key: String,
+    pool: PgPool,
 }
 
 #[allow(dead_code)]
 impl Supabase {
-    pub fn new(url: String, api_key: String) -> Result<Self> {
+    pub async fn new(url: String, api_key: String) -> Result<Self> {
         let client = Client::new();
+        let pool = PgPoolOptions::new()
+        .max_connections(5)
+        .connect("postgres://postgres:password@localhost/test").await?;
         Ok(Self {
             client,
             url,
             api_key,
+            pool,
         })
     }
 

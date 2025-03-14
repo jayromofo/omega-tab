@@ -28,7 +28,6 @@ use supabase::Supabase;
 use tower_http::cors::{Any, CorsLayer};
 use tracing_subscriber::prelude::*;
 use url::Url;
-use sqlx::postgres::PgPoolOptions;
 
 #[derive(Serialize, Clone)]
 pub struct SubscriptionResponse {
@@ -214,23 +213,13 @@ async fn runtime() {
                     .allow_headers(Any)
             }
         }
-    };
-
-    // let pool = match PgPoolOptions::new()
-    //     .max_connections(5)
-    //     .connect("postgres://postgres:password@localhost/test").await {
-    //     Ok(pool) => pool,
-    //     Err(e) => {
-    //         tracing::error!("Error connecting to database: {:?}", e);
-    //         println!("Error connecting to database: {:?}", e);
-    //         return;
-    // }};
+    };    
 
     let client = reqwest::Client::new();
     let supabase = match Supabase::new(
         std::env::var("SUPABASE_URL").expect("SUPABASE_URL must be set"),
         std::env::var("SUPABASE_KEY").expect("SUPABASE_KEY must be set"),
-    ) {
+    ).await {
         Ok(supabase) => supabase,
         Err(e) => {
             tracing::error!("Error initializing Supabase client: {:?}", e);
@@ -684,6 +673,7 @@ async fn create_link(
     let user_email = user_context.email.clone();
     let user_id = user_context.user_id.clone();
     let client = &app_state.client;
+    let supabase = &app_state.supabase;
 
     println!(
         "Creating new link for owner {}: {}",
@@ -704,15 +694,6 @@ async fn create_link(
         payload.owner_id,
         payload.url
     );
-
-    let supabase = Supabase::new(
-        std::env::var("SUPABASE_URL").expect("SUPABASE_URL must be set"),
-        std::env::var("SUPABASE_KEY").expect("SUPABASE_KEY must be set"),
-    )
-    .map_err(|e| {
-        tracing::error!("Error initializing Supabase client: {:?}", e);
-        StatusCode::INTERNAL_SERVER_ERROR
-    })?;
 
     let url = if !payload.url.starts_with("https://") {
         format!("https://{}", payload.url)
