@@ -127,7 +127,7 @@ export const useLinksStore = defineStore("links", {
       this.isLoading = true;
       const originalLinks = [...this.links];
       this.links = this.links.filter((link) => link.id !== linkId);
-      
+
       try {
         const response = await api.delete(API.DELETE_LINK(linkId));
         if (response.status !== 204) {
