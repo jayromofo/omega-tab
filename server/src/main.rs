@@ -528,24 +528,9 @@ async fn confirm_handler(
                                 is_canceling && sub.status != "cancelling";
             
             if should_update {
-                let mut updates = HashMap::new();
-                updates.insert("plan_id".to_string(), json!(supabase_plan.id));
-                updates.insert(
-                    "current_period_end".to_string(),
-                    json!(Utc
-                        .timestamp_opt(subscription.current_period_end, 0).unwrap()
-                        .to_rfc3339()),
-                );
-                updates.insert("stripe_subscription_id".to_string(), json!(subscription.id));
-                
-                // If subscription is set to cancel at period end, mark it as "cancelling" in Supabase
-                let status = if is_canceling { "cancelling" } else { "active" };
-                updates.insert("status".to_string(), json!(status));
-
-                println!("Updating subscription with status: {}", status);
-                println!("updates: {:?}", updates);
+                println!("Updating subscription with status: {}", &sub.status);
                 supabase
-                    .update_subscription(&sub.id, updates)
+                    .update_subscription(sub)
                     .await
                     .map_err(|e| {
                         println!("Error updating subscription: {:?}", e);
@@ -554,7 +539,8 @@ async fn confirm_handler(
                     })?;
             }
         }
-        Err(_) => {
+        Err(err) => {
+            println!("Error: {:?}", err);
             println!("No subscription found, creating subscription");
             // Create new subscription
             let new_sub = supabase::Subscription {
@@ -564,12 +550,8 @@ async fn confirm_handler(
                 plan_id: supabase_plan.clone().id,
                 status: if is_canceling { "cancelling" } else { "active" }.to_string(),
                 stripe_subscription_id: subscription.id.to_string(),
-                current_period_end: Utc
-                    .timestamp_opt(subscription.current_period_end, 0)
-                    .single()
-                    .expect("Invalid timestamp")
-                    .to_rfc3339(),
-                created_at: Utc::now().to_rfc3339(),
+                current_period_end: Utc.timestamp_opt(subscription.current_period_end, 0).unwrap(),
+                created_at: Utc::now(),
             };
 
             println!("new_sub: {:?}", new_sub);
@@ -580,7 +562,7 @@ async fn confirm_handler(
                     &new_sub.plan_id,
                     &new_sub.status,
                     &new_sub.stripe_subscription_id,
-                    &new_sub.current_period_end,
+                    new_sub.current_period_end,
                 )
                 .await
             {
@@ -603,7 +585,7 @@ async fn confirm_handler(
                     entity_id: user.id.clone(),
                     entity_type: "user".to_string(),
                     role: "owner".to_string(),
-                    created_at: Utc::now().to_rfc3339(),
+                    created_at: Utc::now(),
                 };
 
                 println!("new membership: {:?}", membership);
@@ -800,7 +782,7 @@ async fn create_link(
         id: uuid::Uuid::new_v4().to_string(),
         url: url,
         description: Some(description),
-        created_at: Utc::now().to_rfc3339(),
+        created_at: Utc::now(),
         title: title,
         icon: Some(favicon),
         order_index: payload.next_order_index,
@@ -811,6 +793,7 @@ async fn create_link(
 
     if let Err(e) = supabase.create_link(link.clone()).await {
         tracing::error!("Failed to create link in database: {:?}", e);
+        println!("Failed to create link in database: {:?}", e);
         return Err(StatusCode::INTERNAL_SERVER_ERROR);
     }
 
@@ -841,26 +824,22 @@ async fn update_link(
     // Use app_state's Supabase instance
     let supabase = &app_state.supabase;
 
-    let mut updates = HashMap::new();
-    if let Some(url) = payload.url {
-        tracing::info!("Updating URL for link {}", payload.id);
-        updates.insert("url".to_string(), json!(url));
-    }
-    if let Some(description) = payload.description {
-        updates.insert("description".to_string(), json!(description));
-    }
-    if let Some(title) = payload.title {
-        updates.insert("title".to_string(), json!(title));
-    }
-    if let Some(icon) = payload.icon {
-        updates.insert("icon".to_string(), json!(icon));
-    }
-    if let Some(icon) = payload.column_type {
-        updates.insert("column_type".to_string(), json!(icon));
-    }
+    let link = supabase::Link {
+        id: payload.id.clone(),
+        url: payload.url.clone().unwrap_or_else(|| "".to_string()),
+        description: payload.description.clone(),
+        title: payload.title.clone().unwrap(),
+        icon: payload.icon.clone(),
+        column_type: payload.column_type.clone().unwrap(),
+        created_at: Utc::now(),
+        order_index: 0,
+        owner_type: "".to_string(),
+        owner_id: "".to_string(),
+    };
 
-    if let Err(e) = supabase.update_link(&payload.id, updates).await {
-        tracing::error!("Failed to update link {}: {:?}", payload.id, e);
+    if let Err(e) = supabase.update_link(link).await {
+        tracing::error!("Failed to update link: {:?}", e);
+        println!("Failed to update link: {:?}", e);
         return Err(StatusCode::INTERNAL_SERVER_ERROR);
     }
 
@@ -1031,7 +1010,7 @@ async fn cancel_handler(
     println!("Got user: {:?}", _user);
 
     // then get the supabase subscription
-    let supa_sub = supabase
+    let mut supa_sub = supabase
         .get_user_subscription(&user_id)
         .await
         .map_err(|e| match e.to_string().as_str() {
@@ -1072,17 +1051,8 @@ async fn cancel_handler(
     println!("Cancelled subscription: {:?}", sub);
 
     // If that worked, update the subscription records in supabase
-    let mut updates = HashMap::new();
-    updates.insert("status".to_string(), json!("cancelled"));
-    updates.insert("stripe_subscription_id".to_string(), json!(""));
-    updates.insert(
-        "current_period_end".to_string(),
-        json!(Utc::now().to_rfc3339()),
-    );
-
-    println!("updates: {:?}", updates);
-
-    if let Err(e) = supabase.update_subscription(&supa_sub.id, updates).await {
+    supa_sub.status = "cancelled".to_string();    
+    if let Err(e) = supabase.update_subscription(supa_sub).await {
         println!("Error occurred updating the sub in supabase: {:?}", e);
         return Err(StatusCode::INTERNAL_SERVER_ERROR);
     }
@@ -1384,7 +1354,7 @@ async fn feedback_handler(
 
     // Create a feedback timestamp record
     supabase
-        .create_feedback_timestamp(&user_id, &Utc::now().to_rfc3339())
+        .create_feedback_timestamp(&user_id, &Utc::now())
         .await
         .map_err(|e| {
             println!("Error creating feedback timestamp: {:?}", e);
@@ -1421,7 +1391,7 @@ async fn create_settings(
     let settings = supabase::UserSettings {
         user_id: user_id.clone(),
         settings_blob: json!(payload),
-        created_at: Utc::now().to_rfc3339(),
+        created_at: Utc::now(),
     };
 
     if let Err(e) = supabase.create_user_settings(settings).await {
@@ -1591,16 +1561,15 @@ async fn cancel_subscription_hook(
         StatusCode::NOT_FOUND
     })?;
 
-    let mut updates = HashMap::new();
-    updates.insert("status".to_string(), json!("cancelled"));
-    updates.insert("stripe_subscription_id".to_string(), json!(subscription.id));
-    updates.insert(
-        "current_period_end".to_string(),
-        json!(Utc::now().to_rfc3339()),
-    );
+    let mut supa_sub = supabase.get_user_subscription(&user.id).await.map_err(|e| {
+        println!("Error retrieving user subscription: {:?}", e);
+        StatusCode::NOT_FOUND
+    })?;
+
+    supa_sub.status = "cancelled".to_string();
 
     supabase
-        .update_subscription(&user.id, updates)
+        .update_subscription(supa_sub)
         .await
         .map_err(|e| {
             println!("Error updating subscription: {:?}", e);
@@ -1796,7 +1765,10 @@ async fn get_user_data_handler(
             supabase
                 .get_plan(&free_plan_id)
                 .await
-                .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?,
+                .map_err(|err| {
+                    println!("Error fetching free plan: {:?}", err);
+                    StatusCode::INTERNAL_SERVER_ERROR
+                })?,
         )
     } else {
         None
@@ -1866,7 +1838,7 @@ async fn create_user_default_settings(
     let user_settings = supabase::UserSettings {
         user_id: user.id.clone(),
         settings_blob: json!(settings_blob),
-        created_at: Utc::now().to_rfc3339(),
+        created_at: Utc::now(),
     };
 
     let settings = supabase.get_user_settings(&user.id).await.ok();
