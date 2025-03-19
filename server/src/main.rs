@@ -1,5 +1,7 @@
 // test user: evanr@fdm4.com
 //TestPasswordForClerk
+// test user: evan.robertson77@gmail.com
+//Test-Pass2-Word$
 mod brave;
 mod middleware;
 mod resend;

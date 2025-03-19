@@ -46,7 +46,7 @@
             </v-card-text>
 
             <v-card-text class="pt-0">
-                <p class="text-center">Don't have an account? <strong>Sign up here.</strong></p>
+                <p class="text-center">Don't have an account? <strong @click="switchToSignUp" class="cursor-pointer">Sign up here.</strong></p>
             </v-card-text>
 
         </v-card>
@@ -55,7 +55,7 @@
 </template>
 
 <script setup>
-import { ref, reactive } from 'vue';
+import { ref } from 'vue';
 
 const dialog = ref(true);
 const valid = ref(true);
@@ -103,11 +103,24 @@ const loginWithGithub = () => {
     console.log('Logging in with GitHub');
 };
 
+const switchToSignUp = () => {
+    // Emit event to parent to switch to signup modal
+    console.log('Switching to signup');
+    emit('switch-to-signup');
+};
+
+// Define emits for the component
+const emit = defineEmits(['switch-to-signup']);
+
 defineExpose({ open, close });
 </script>
 
 <style scoped>
 .v-card {
     border-radius: 12px;
+}
+
+.cursor-pointer {
+    cursor: pointer;
 }
 </style>

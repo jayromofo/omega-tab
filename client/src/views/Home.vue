@@ -228,8 +228,8 @@
         </div>
       </v-dialog>
     </div>
-
-    <Login />
+    
+    <AuthModal />
 
     <Feedback v-model="showFeedbackDialog" @update:modelValue="handleFeedbackDialogClose" :cancelSubscription=false />
 
@@ -263,19 +263,7 @@ import { API } from "../constants/api";
 import api from "../services/api";
 import { useHead } from '@unhead/vue';
 import { createClient } from '@supabase/supabase-js';
-import Login from "@/components/Login.vue";
-
-const supabase = createClient(
-  import.meta.env.VITE_SUPABASE_URL, 
-  import.meta.env.VITE_SUPABASE_ANON_KEY
-);
-
-// to sign in
-supabase.auth.signInWithPassword({
-  email: "evan.robertson77@gmail.com",
-  password: "password",
-});
-
+import AuthModal from '@/components/AuthModal.vue';
 
 // Set SEO metadata using Unhead
 useHead({
