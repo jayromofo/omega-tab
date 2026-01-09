@@ -59,13 +59,12 @@ export default defineConfig({
       output: {
         manualChunks: {
           vendor: [
-            'vue', 
-            'vue-router', 
-            'pinia', 
-            'vuetify', 
+            'vue',
+            'vue-router',
+            'pinia',
+            'vuetify',
             'lodash'
           ],
-          auth: ['@clerk/clerk-js'],
           sentry: ['@sentry/vue'],
           search: ['fuse.js']
         }
@@ -86,7 +85,6 @@ export default defineConfig({
       'pinia',
       'vuetify',
       'lodash',
-      '@clerk/clerk-js',
       'fuse.js',
     ]
   }

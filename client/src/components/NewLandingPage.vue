@@ -37,7 +37,7 @@
         <!-- Signup CTA -->
         <div class="max-w-lg mx-auto">
           <div class="flex justify-center">
-            <button @click="showSignIn = true"
+            <button @click="showSignIn"
               class="px-8 py-4 rounded-full bg-white/5 backdrop-filter backdrop-blur-lg text-white hover:bg-white/5 active:bg-white/10 transition-colors flex items-center space-x-2 shadow-inner shadow-white/20">
               <span class="text-lg">Get Started</span>
               <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 24 24" fill="none"
@@ -209,26 +209,29 @@
     </div>
 
     <AppFooter />
-    <!-- <AuthModal 
-        v-model:showModal="showAuthModal" 
-        v-model:activeModal="activeModal" 
-        ref="authModalRef" 
-    /> -->
+    <AuthModal ref="authModalRef" />
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, nextTick, onMounted } from "vue";
+import { ref } from "vue";
 import { FreePlanFeatures, PlusPlanFeatures, ProPlanFeatures } from "../data/plans";
-import { cache } from "@/utils/cache";
-import AppHeader from '@/components/AppHeader.vue';
-import AppFooter from '@/components/AppFooter.vue';
+import AppHeader from "@/components/AppHeader.vue";
+import AppFooter from "@/components/AppFooter.vue";
 import AuthModal from "./AuthModal.vue";
+import type { AuthModalMethods } from "@/types/AuthModalMethods";
 
-const showAuthModal = ref(false);
-const activeModal = ref("login");
+const authModalRef = ref<AuthModalMethods | null>(null);
 const PlusPlanUrl = import.meta.env.VITE_PLUS_PLAN_URL;
 const ProPlanUrl = import.meta.env.VITE_PRO_PLAN_URL;
+
+const showSignIn = () => {
+  authModalRef.value?.openLogin();
+};
+
+const handleShowSignUp = () => {
+  authModalRef.value?.openSignUp();
+};
 
 </script>
 

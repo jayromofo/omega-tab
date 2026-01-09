@@ -1,5 +1,5 @@
 import type { Link } from "./Link";
-import type { Subscription, SubscriptionResponse } from "./Subscription";
+import type { Subscription } from "./Subscription";
 import type { UserSettings } from "./UserSettings";
 
 // this is the "Supabase" User type, i.e. exactly what is in the supabase table
@@ -22,17 +22,20 @@ export type UserState = {
   auth_token: string | null;
 };
 
-// this is the "Clerk" User type, i.e. the data we get from Clerk
-export type ClerkUser = {
+// Simple user object for auth methods
+export type AuthUser = {
   id: string;
   email: string;
-  firstName: string;
-  lastName: string;
+};
+
+// Response from login/register endpoints
+export type AuthResponse = {
+  token: string;
+  user: User;
 };
 
 export type UserDataResponse = {
   user: User;
-  subscription: SubscriptionResponse | null;
   plan: Subscription | null;
   settings: settings_blob;
   links: Link[];

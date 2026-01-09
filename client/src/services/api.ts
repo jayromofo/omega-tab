@@ -26,17 +26,26 @@ api.interceptors.request.use(
   },
 );
 
-// Optional: Response interceptor for global error handling
-// api.interceptors.response.use(
-//   (response) => response,
-//   (error) => {
-//     // Example: Handle 401 globally
-//     if (error.response?.status === 401) {
-//       console.error('Unauthorized! Redirecting to login...');
-//       // Add logic to redirect or handle errors
-//     }
-//     return Promise.reject(error);
-//   }
-// );
+// Response interceptor for token refresh and error handling
+api.interceptors.response.use(
+  (response) => {
+    // Check for new token in response headers (auto-refresh from backend)
+    const newToken = response.headers["x-new-auth-token"];
+    if (newToken) {
+      localStorage.setItem("token", newToken);
+    }
+    return response;
+  },
+  (error) => {
+    if (error.response?.status === 401) {
+      // Token expired or invalid - clear and redirect
+      localStorage.removeItem("token");
+      const userStore = useUserStore();
+      userStore.clearUser();
+      window.location.href = "/";
+    }
+    return Promise.reject(error);
+  },
+);
 
 export default api;

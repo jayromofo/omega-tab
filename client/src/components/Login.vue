@@ -9,34 +9,19 @@
                         <p class="text-sm text-gray-200">Welcome back! Please sign in.</p>
                     </v-card-title>
 
-                    <v-card-text class="text-center">
-
-                        <div class="d-flex justify-space-around">
-                            <v-btn class="px-10 !border-zinc-400" variant="outlined" @click="loginWithGoogle" aria-label="Login with Google" rounded>
-                                <img src="/icons/google.svg" alt="Google" class="w-6 h-6">
-                            </v-btn>
-
-                            <v-btn class="px-10 !border-zinc-400" variant="outlined" @click="loginWithMicrosoft" aria-label="Login with Microsoft" rounded>
-                                <img src="/icons/microsoft.svg" alt="Microsoft" class="w-6 h-6">
-                            </v-btn>
-
-                            <v-btn class="px-10 !border-zinc-400" variant="outlined" @click="loginWithGithub" aria-label="Login with Github" rounded>
-                                <img src="/icons/github.svg" alt="GitHub" class="w-6 h-6">
-                            </v-btn>
-                        </div>
-                    </v-card-text>
-
-                    <v-divider class="my-4"> Or </v-divider>
-
                     <v-card-text>
-                        <v-form ref="form" v-model="valid" lazy-validation>
+                        <v-alert v-if="errorMessage" type="error" class="mb-4" closable @click:close="errorMessage = ''">
+                            {{ errorMessage }}
+                        </v-alert>
+
+                        <v-form ref="form" v-model="valid" lazy-validation @submit.prevent="login">
                             <v-text-field v-model="email" :rules="emailRules" label="Email" required
-                                prepend-inner-icon="mdi-email" variant="outlined" rounded></v-text-field>
+                                prepend-inner-icon="mdi-email" variant="outlined" rounded :disabled="isLoading"></v-text-field>
 
                             <v-text-field v-model="password" :rules="passwordRules" label="Password" type="password"
-                                required prepend-inner-icon="mdi-lock" autocomplete="password" variant="outlined" rounded></v-text-field>
+                                required prepend-inner-icon="mdi-lock" autocomplete="password" variant="outlined" rounded :disabled="isLoading"></v-text-field>
 
-                            <v-btn block class="mt-4 bg-white" :disabled="!valid" @click="login" rounded>
+                            <v-btn block class="mt-4 bg-white" :disabled="!valid || isLoading" :loading="isLoading" @click="login" rounded>
                                 Login
                             </v-btn>
                         </v-form>
@@ -54,63 +39,82 @@
     </v-dialog>
 </template>
 
-<script setup>
-import { ref } from 'vue';
+<script setup lang="ts">
+import { ref } from "vue";
+import { authService } from "@/services/auth";
+import { useUserStore } from "@/stores/user";
+
+const userStore = useUserStore();
 
 const dialog = ref(true);
 const valid = ref(true);
-const email = ref('');
-const password = ref('');
-const form = ref(null);
+const email = ref("");
+const password = ref("");
+const form = ref<{ validate: () => Promise<boolean> } | null>(null);
+const isLoading = ref(false);
+const errorMessage = ref("");
 
 const emailRules = [
-    v => !!v || 'Email is required',
-    v => /.+@.+\..+/.test(v) || 'Email must be valid',
+    (v: string) => !!v || "Email is required",
+    (v: string) => /.+@.+\..+/.test(v) || "Email must be valid",
 ];
 
 const passwordRules = [
-    v => !!v || 'Password is required',
-    v => v.length >= 6 || 'Password must be at least 6 characters',
+    (v: string) => !!v || "Password is required",
+    (v: string) => v.length >= 6 || "Password must be at least 6 characters",
 ];
 
 const open = () => {
     dialog.value = true;
+    errorMessage.value = "";
 };
 
 const close = () => {
     dialog.value = false;
+    errorMessage.value = "";
 };
 
-const login = () => {
-    if (form.value.validate()) {
-        // Implement login logic here
-        console.log('Logging in with email and password');
+const login = async () => {
+    if (!form.value) return;
+
+    const isValid = await form.value.validate();
+    if (!isValid) return;
+
+    isLoading.value = true;
+    errorMessage.value = "";
+
+    try {
+        const response = await authService.login(email.value, password.value);
+        authService.setToken(response.token);
+
+        await userStore.fetchUserData({
+            id: response.user.id,
+            email: response.user.email,
+        });
+
+        emit("login-success");
+        close();
+        window.location.reload();
+    } catch (error: unknown) {
+        const err = error as { response?: { status: number } };
+        if (err.response?.status === 401) {
+            errorMessage.value = "Invalid email or password";
+        } else {
+            errorMessage.value = "Login failed. Please try again.";
+        }
+    } finally {
+        isLoading.value = false;
     }
 };
 
-const loginWithGoogle = () => {
-    // Implement Google OAuth login
-    console.log('Logging in with Google');
-};
-
-const loginWithMicrosoft = () => {
-    // Implement Microsoft OAuth login
-    console.log('Logging in with Microsoft');
-};
-
-const loginWithGithub = () => {
-    // Implement GitHub OAuth login
-    console.log('Logging in with GitHub');
-};
-
 const switchToSignUp = () => {
-    // Emit event to parent to switch to signup modal
-    console.log('Switching to signup');
-    emit('switch-to-signup');
+    emit("switch-to-signup");
 };
 
-// Define emits for the component
-const emit = defineEmits(['switch-to-signup']);
+const emit = defineEmits<{
+    "switch-to-signup": [];
+    "login-success": [];
+}>();
 
 defineExpose({ open, close });
 </script>

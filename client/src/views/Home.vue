@@ -14,9 +14,7 @@
             </v-col>
             <v-col class="flex justify-end">
               <div class="flex rounded-full items-center">
-                <button id="user-button" aria-label="User account"></button>
-                <v-btn icon="mdi-cog" @click="router.push('/settings');" class="!w-[42px] !h-[42px] ms-8"
-                  aria-label="Settings" />
+                <UserMenu />
               </div>
             </v-col>
           </v-row>
@@ -239,14 +237,14 @@
   </div>
 </template>
 <script setup lang="ts">
-import CommandPalette from '../components/CommandPalette.vue';
-import { Clerk } from "@clerk/clerk-js";
-import { computed, nextTick, onMounted, ref, onUnmounted } from "vue";
+import CommandPalette from "../components/CommandPalette.vue";
+import { computed, onMounted, ref, onUnmounted } from "vue";
 import { useRouter } from "vue-router";
 import NewLandingPage from "../components/NewLandingPage.vue";
 import LinkColumns from "../components/LinkColumns.vue";
 import SearchBar from "../components/SearchBar.vue";
 import Feedback from "../components/Feedback.vue";
+import UserMenu from "../components/UserMenu.vue";
 import { useUserStore } from "../stores/user";
 import { useLinksStore, SHORTCUT_MAPPINGS } from "../stores/links";
 import { useFeedbackStore } from "../stores/feedback";
@@ -254,8 +252,8 @@ import { useUserSettingsStore } from "../stores/settings";
 import { searchEngines } from "../data/SearchEngines";
 import { API } from "../constants/api";
 import api from "../services/api";
-import { useHead } from '@unhead/vue';
-import { createClient } from '@supabase/supabase-js';
+import { useHead } from "@unhead/vue";
+import { authService } from "../services/auth";
 
 // Set SEO metadata using Unhead
 useHead({
@@ -339,8 +337,6 @@ const userSettingsStore = useUserSettingsStore();
 
 // Initialize services
 const router = useRouter();
-const clerkPubKey = import.meta.env.VITE_CLERK_PUBLISHABLE_KEY;
-const clerk = new Clerk(clerkPubKey);
 
 // State management
 const isLoggedIn = ref(false);
@@ -350,10 +346,6 @@ const showFeedbackDialog = ref(false);
 const showFeedbackMessageDialog = ref(false);
 const feedbackMessageTitle = ref("");
 const feedbackMessage = ref("");
-
-// Token refresh interval
-let tokenRefreshInterval: number | undefined;
-let lastActivityTimestamp: number = Date.now();
 
 // User and data state
 const userId = ref<string | null>(null);
@@ -438,84 +430,6 @@ const handleFeedbackDialogClose = async (value: boolean) => {
   }
 };
 
-const refreshToken = async () => {
-  try {
-    // Check if user is still active
-    const inactiveTime = Date.now() - lastActivityTimestamp;
-    const inactiveThreshold = 5 * 60 * 1000; // 5 minutes
-    const session = await clerk.session;
-
-    if (!session) {
-      console.warn("No active session found during token refresh");
-      return false;
-    }
-
-    // If inactive for too long, force a more thorough session check
-    if (inactiveTime > inactiveThreshold) {
-      await session.getToken(); // Force a check of the session
-    }
-
-    // This will trigger a token refresh if needed
-    const token = await session.getToken({ leewayInSeconds: 30 }); // 30 seconds leeway to handle clock skew
-    if (token) {
-      localStorage.setItem("token", token);
-    } else {
-      console.warn("Failed to get token during refresh");
-      // Try a more direct approach to refresh if the token wasn't returned
-      await session.touch();
-    }
-  } catch (error) {
-    console.error("Error refreshing JWT token:", error);
-    // If refreshing fails, try a forced reload of the Clerk client
-    try {
-      await clerk.load();
-      const newSession = await clerk.session;
-      if (newSession) {
-        const token = await newSession.getToken();
-        if (token) {
-          localStorage.setItem("token", token);
-        }
-      }
-    } catch (reloadError) {
-      console.error("Failed to reload clerk after refresh error:", reloadError);
-    }
-  }
-};
-
-const startTokenRefreshInterval = () => {
-  // Refresh token every 4 minutes (Clerk tokens typically expire after 5 minutes of inactivity)
-  tokenRefreshInterval = window.setInterval(refreshToken, 4 * 60 * 1000);
-
-  // Setup activity tracking to detect user presence
-  const trackUserActivity = () => {
-    lastActivityTimestamp = Date.now();
-  };
-
-  // Track various user activities
-  window.addEventListener('mousemove', trackUserActivity);
-  window.addEventListener('keydown', trackUserActivity);
-  window.addEventListener('click', trackUserActivity);
-  window.addEventListener('scroll', trackUserActivity);
-  window.addEventListener('focus', () => {
-    trackUserActivity();
-    // When tab regains focus, immediately refresh token
-    refreshToken();
-  });
-};
-
-const stopTokenRefreshInterval = () => {
-  if (tokenRefreshInterval) {
-    clearInterval(tokenRefreshInterval);
-  }
-
-  // Remove activity tracking
-  window.removeEventListener('mousemove', () => { });
-  window.removeEventListener('keydown', () => { });
-  window.removeEventListener('click', () => { });
-  window.removeEventListener('scroll', () => { });
-  window.removeEventListener('focus', () => { });
-};
-
 const showShortcutDivider = (index:number, linksInColumn:number, currentColumn:number) => {
   // if there is only 1 column, then we don't need a divider for the last index of this column.
   // if there is more than 1 column, then we don't need a divider for the last index of the last column.
@@ -533,101 +447,69 @@ onMounted(async () => {
   isLoading.value = true;
 
   try {
-    await clerk.load();
-    isLoggedIn.value = !!clerk.user;
+    // Check if user has a valid token
+    const token = authService.getToken();
+    isLoggedIn.value = !!token;
 
-    if (isLoggedIn.value && clerk.user) {
-
+    if (isLoggedIn.value) {
       try {
-        // Retrieve JWT token and store it in local storage
-        const session = await clerk.session;
-        const token = await session?.getToken();
-        if (token) {
-          localStorage.setItem("token", token);
-        }
-      } catch (error) {
-        console.error("Error fetching JWT token:", error);
-      }
+        // Fetch user data from server
+        const response = await api.get<{ user: { id: string; email: string } }>(API.GET_USER_DATA);
 
-      // Start token refresh interval
-      startTokenRefreshInterval();
+        if (response.data.user) {
+          const authUser = {
+            id: response.data.user.id,
+            email: response.data.user.email,
+          };
 
-      try {
-        // Check cache first - this is synchronous
-        const gotCachedData = userStore.fetchUserDataFromCache({
-          id: clerk.user.id,
-          firstName: clerk.user.firstName || "",
-          lastName: clerk.user.lastName || "",
-          email: clerk.user.emailAddresses[0].emailAddress,
-        });
-        
-        if (gotCachedData) {
-          // We have cache data, fetch from server asynchronously (don't await)
-          userStore.fetchUserDataFromServer({
-            id: clerk.user.id,
-            firstName: clerk.user.firstName || "",
-            lastName: clerk.user.lastName || "",
-            email: clerk.user.emailAddresses[0].emailAddress,
-          }).catch(error => {
-            console.error("Background refresh of user data failed:", error);
-          });
-        } else {
-          // No cache data, must wait for server data
-          const serverDataSuccess = await userStore.fetchUserDataFromServer({
-            id: clerk.user.id,
-            firstName: clerk.user.firstName || "",
-            lastName: clerk.user.lastName || "",
-            email: clerk.user.emailAddresses[0].emailAddress,
-          });
-          
-          if (!serverDataSuccess) {
-            throw new Error("Failed to fetch user data from server");
+          // Check cache first - this is synchronous
+          const gotCachedData = userStore.fetchUserDataFromCache(authUser);
+
+          if (gotCachedData) {
+            // We have cache data, fetch from server asynchronously (don't await)
+            userStore.fetchUserDataFromServer(authUser).catch((error) => {
+              console.error("Background refresh of user data failed:", error);
+            });
+          } else {
+            // No cache data, must wait for server data
+            const serverDataSuccess = await userStore.fetchUserDataFromServer(authUser);
+
+            if (!serverDataSuccess) {
+              throw new Error("Failed to fetch user data from server");
+            }
           }
+
+          // Always fetch settings - these will come from cache if available
+          userSettingsStore.fetchSettings();
+
+          if (!userStore.userId) {
+            throw new Error("User ID not found");
+          }
+          linksStore.fetchLinks(userStore.userId);
+        } else {
+          // No user found, clear auth state
+          isLoggedIn.value = false;
+          authService.logout();
         }
       } catch (error) {
         console.error("Error fetching user data:", error);
-        throw new Error("Error fetching user data");
+        // Token might be invalid, clear auth state
+        isLoggedIn.value = false;
+        authService.logout();
       }
-
-      // Always fetch settings - these will come from cache if available
-      userSettingsStore.fetchSettings();
-
-      // this is def not gonna happen but for type errors
-      if (!userStore.userId) {
-        throw new Error("User ID not found");
-      }
-      linksStore.fetchLinks(userStore.userId);
     }
   } catch (error) {
     console.error("Error during initialization:", error);
-    // Handle error appropriately
   } finally {
     isLoading.value = false;
   }
 
-  // Mount Clerk user button if logged in (has nothing to do with user data above)
-  if (isLoggedIn.value) {
-    nextTick(() => {
-      const userButtonDiv = document.getElementById("user-button");
-      if (userButtonDiv) {
-        clerk.mountUserButton(userButtonDiv as HTMLDivElement, {
-          appearance: {
-            elements: {
-              rootBox: "scale-150 items-center",
-            },
-          },
-        });
-      }
-    });
-  }
-
-  // mount event listenrs
-  window.addEventListener('keydown', handleShowKeyboardShortcuts);
+  // mount event listeners
+  window.addEventListener("keydown", handleShowKeyboardShortcuts);
 });
 
 onUnmounted(() => {
-  stopTokenRefreshInterval();
-  window.removeEventListener('keydown', handleShowKeyboardShortcuts);
+  window.removeEventListener("keydown", handleShowKeyboardShortcuts);
 });
 </script>
 

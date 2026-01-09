@@ -1,6 +1,6 @@
-import type { Subscription, SubscriptionResponse } from "@/types/Subscription";
+import { API } from "@/constants/api";
+import api from "@/services/api";
 import { CacheKeys, cache } from "@/utils/cache";
-import { Clerk } from "@clerk/clerk-js";
 // src/router/index.ts
 import { createRouter, createWebHistory } from "vue-router";
 import { useUserSettingsStore } from "../stores/settings";
@@ -28,32 +28,6 @@ const router = createRouter({
       path: "/staging-login",
       name: "stagingLogin",
       component: () => import("../views/staging_login.vue"),
-    },
-    {
-      path: "/plans",
-      name: "plans",
-      component: () => import("../views/Plans.vue"),
-      beforeEnter: (to, from, next) => {
-        // Check if we're in staging mode and not logged in
-        if (isStaging && !cache.get(CacheKeys.STAGING_LOGGED_IN)) {
-          next("/staging-login");
-        } else {
-          next();
-        }
-      },
-    },
-    {
-      path: "/confirm",
-      name: "confirm",
-      component: () => import("../views/Confirm.vue"),
-      beforeEnter: (to, from, next) => {
-        // Check if we're in staging mode and not logged in
-        if (isStaging && !cache.get(CacheKeys.STAGING_LOGGED_IN)) {
-          next("/staging-login");
-        } else {
-          next();
-        }
-      },
     },
     {
       path: "/contact",
@@ -84,31 +58,33 @@ const router = createRouter({
         const userStore = useUserStore();
         const userSettingsStore = useUserSettingsStore();
 
+        // Check if user has a token
+        const token = localStorage.getItem("token");
+        if (!token) {
+          next("/");
+          return;
+        }
+
         // if not logged in already in userStore (user probably refreshed page)
-        // note: don't refreh from cache here, speed is not important, accuracy is.
         if (!userStore.userId) {
           try {
-            const clerk = new Clerk(import.meta.env.VITE_CLERK_PUBLISHABLE_KEY);
-            await clerk.load();
+            // Fetch user data from server
+            const response = await api.get<{
+              user: { id: string; email: string };
+            }>(API.GET_USER_DATA);
 
-            if (!clerk.user) {
+            if (!response.data.user) {
               throw new Error("User not logged in");
             }
 
-            if (!clerk.user.emailAddresses[0]) {
-              throw new Error("No user email found");
-            }
-
-            let gotUser = false;
+            const authUser = {
+              id: response.data.user.id,
+              email: response.data.user.email,
+            };
 
             // Fetch user data asynchronously without blocking the UI
             userStore
-              .fetchUserData({
-                id: clerk.user.id,
-                firstName: clerk.user.firstName || "",
-                lastName: clerk.user.lastName || "",
-                email: clerk.user.emailAddresses[0].emailAddress,
-              })
+              .fetchUserData(authUser)
               .then((success) => {
                 if (!success) {
                   console.error("Failed to fetch user data");
@@ -118,19 +94,13 @@ const router = createRouter({
                 console.error("Error fetching user data:", err);
               });
 
-            // Proceed without waiting for fetchUserData to complete
-            gotUser = !!userStore.userId;
-
-            if (!gotUser) {
-              throw new Error("Failed to fetch user data");
-            }
-
             // always fetch settings with User
             await userSettingsStore.fetchSettings();
 
             next();
           } catch (err) {
             console.error(err);
+            localStorage.removeItem("token");
             next("/");
           }
         } else {

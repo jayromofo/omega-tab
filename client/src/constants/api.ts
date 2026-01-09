@@ -1,9 +1,9 @@
 const apiDomain = import.meta.env.VITE_API_BASE_URL || "http://localhost:3000";
 
 export const API = {
+  LOGIN: `${apiDomain}/login`,
+  REGISTER: `${apiDomain}/register`,
   CREATE_USER: `${apiDomain}/create_user`,
-  CONFIRM_SUBSCRIPTION: `${apiDomain}/confirm`,
-  CANCEL_SUBSCRIPTION: `${apiDomain}/cancel`,
   GET_USER: `${apiDomain}/user`,
   GET_USER_PLAN: (planId: string) => `${apiDomain}/plan/${planId}`,
   GET_USER_LINKS: `${apiDomain}/user/links`,

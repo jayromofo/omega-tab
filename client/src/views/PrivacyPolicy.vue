@@ -29,13 +29,13 @@
             <p class="mb-4">We collect several types of information from and about users of our Service, including:</p>
             
             <ul class="list-disc pl-6 mb-6">
-              <li class="mb-2"><strong>Personal Information:</strong> Email address and user name, collected through our authentication provider, Clerk.</li>
+              <li class="mb-2"><strong>Personal Information:</strong> Email address, collected when you create an account.</li>
               <li class="mb-2"><strong>User Content:</strong> Links, URLs, and descriptions that you enter into the website.</li>
               <li class="mb-2"><strong>Search History:</strong> We store your last 500 search terms locally on your device. Search frequency is tracked and scored to provide better search suggestions. This data is stored locally on your device and is not transmitted to our servers.</li>
               <li class="mb-2"><strong>Keystrokes:</strong> We track keystrokes solely for the purpose of enabling keyboard shortcuts. These are not logged or stored.</li>
               <li class="mb-2"><strong>Search Terms:</strong> When you use our search suggestion feature, your search terms are sent to Brave to generate search suggestions using their API.</li>
               <li class="mb-2"><strong>Payment Information:</strong> When you subscribe to our Service, we collect billing information (such as your name, billing address, and payment method details) through our payment processor, Stripe. We do not store full payment card details on our servers; this data is securely handled by Stripe.</li>
-              <li class="mb-2"><strong>Cookies and Similar Technologies:</strong> We may use cookies or similar technologies (e.g., via Clerk for authentication) to manage sessions and improve your experience. You can control cookies through your browser settings.</li>
+              <li class="mb-2"><strong>Cookies and Similar Technologies:</strong> We may use cookies or similar technologies to manage sessions and improve your experience. You can control cookies through your browser settings.</li>
             </ul>
           </div>
 
@@ -57,7 +57,7 @@
           <h2 class="text-2xl font-bold text-white mt-8 mb-4">Data Storage and Transfer</h2>
           
           <p class="text-gray-300 mb-4">
-            Your data is stored in Supabase, not on our servers. Data is transferred through our servers to Supabase. Our operations are based in Canada, but we use various services such as Clerk, Supabase, and Brave that operate globally, primarily in the United States.
+            Your data is stored in Supabase, not on our servers. Data is transferred through our servers to Supabase. Our operations are based in Canada, but we use various services such as Supabase and Brave that operate globally, primarily in the United States.
           </p>
 
           <h2 class="text-2xl font-bold text-white mt-8 mb-4">Error Tracking and Monitoring</h2>
@@ -78,8 +78,7 @@
             Our Service uses third-party services that may collect information used to identify you:
           </p>
           <ul class="list-disc pl-6 mb-6 text-gray-300">
-            <li class="mb-2"><strong>Clerk:</strong> For authentication services; <a href="https://clerk.com/legal/privacy" class="text-blue-400 hover:underline">Privacy Policy</a></li>
-            <li class="mb-2"><strong>Supabase:</strong> For data storage; <a href="https://sentry.io/privacy/" class="text-blue-400 hover:underline">Privacy Policy</a></li>
+            <li class="mb-2"><strong>Supabase:</strong> For data storage; <a href="https://supabase.com/privacy" class="text-blue-400 hover:underline">Privacy Policy</a></li>
             <li class="mb-2"><strong>Brave:</strong> For search suggestions; <a href="https://brave.com/privacy/browser/" class="text-blue-400 hover:underline">Privacy Policy</a></li>
             <li class="mb-2"><strong>Sentry:</strong> For error tracking; <a href="https://sentry.io/privacy/" class="text-blue-400 hover:underline">Privacy Policy</a></li>
             <li class="mb-2"><strong>Stripe:</strong> For processing payments and managing subscriptions. Stripe collects and processes your payment information in accordance with its <a href="https://stripe.com/privacy" class="text-blue-400 hover:underline">Privacy Policy</a>.</li>
@@ -91,7 +90,7 @@
           <h2 class="text-2xl font-bold text-white mt-8 mb-4">Sharing Your Information</h2>
 
           <p class="text-gray-300 mb-4">
-            We do not sell, trade, or rent your personal information to third parties. We may share your information with third-party service providers (such as Clerk, Supabase, Brave, Sentry, and Stripe) to perform functions on our behalf, as described in this Privacy Policy. We may also disclose your information if required by law, to protect our rights, or in connection with a business transfer (e.g., merger or acquisition).
+            We do not sell, trade, or rent your personal information to third parties. We may share your information with third-party service providers (such as Supabase, Brave, Sentry, and Stripe) to perform functions on our behalf, as described in this Privacy Policy. We may also disclose your information if required by law, to protect our rights, or in connection with a business transfer (e.g., merger or acquisition).
           </p>
 
           <h2 class="text-2xl font-bold text-white mt-8 mb-4">Data Retention</h2>

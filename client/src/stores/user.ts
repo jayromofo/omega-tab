@@ -1,13 +1,8 @@
 import { API } from "@/constants/api";
 import api from "@/services/api";
 import type { Link } from "@/types/Link";
-import type { Subscription, SubscriptionResponse } from "@/types/Subscription";
-import type {
-  ClerkUser,
-  User,
-  UserDataResponse,
-  UserState,
-} from "@/types/User";
+import type { Subscription } from "@/types/Subscription";
+import type { AuthUser, User, UserDataResponse, UserState } from "@/types/User";
 import { CacheKeys, cache } from "@/utils/cache";
 import { defineStore } from "pinia";
 import { useLinksStore } from "./links";
@@ -28,13 +23,13 @@ export const useUserStore = defineStore("user", {
   actions: {
     /**
      * Fetches user data from the cache if available
-     * @param clerk_user - The Clerk user object containing authentication details.
+     * @param authUser - The authenticated user object containing id and email.
      * @returns true if data was retrieved from cache, false otherwise
      */
-    fetchUserDataFromCache(clerk_user: ClerkUser): boolean {
-      // set ID and Email from Clerk user initially to use in middleware
-      this.setEmail(clerk_user.email);
-      this.setUserId(clerk_user.id);
+    fetchUserDataFromCache(authUser: AuthUser): boolean {
+      // set ID and Email from auth user initially to use in middleware
+      this.setEmail(authUser.email);
+      this.setUserId(authUser.id);
 
       // Load from cache for fast page load
       const cachedData = cache.get<UserState>(CacheKeys.USER);
@@ -64,11 +59,11 @@ export const useUserStore = defineStore("user", {
     /**
      * Fetches user data from the API and updates the store state.
      * This includes the user record, subscription record, and plan record.
-     * @param clerk_user - The Clerk user object containing authentication details.
+     * @param authUser - The authenticated user object containing id and email.
      * @returns true if the user data was successfully fetched, false otherwise.
      * @throws Error if the user data could not be fetched.
      */
-    async fetchUserDataFromServer(clerk_user: ClerkUser): Promise<boolean> {
+    async fetchUserDataFromServer(authUser: AuthUser): Promise<boolean> {
       this.isLoading = true;
 
       try {
@@ -88,8 +83,6 @@ export const useUserStore = defineStore("user", {
         if (data.user) {
           this.setEmail(data.user.email);
           this.setUserId(data.user.id);
-          this.setFirstName(clerk_user.firstName);
-          this.setLastName(clerk_user.lastName);
 
           // Store the auth token
           if (data.user.auth_token) {
@@ -123,37 +116,22 @@ export const useUserStore = defineStore("user", {
     },
 
     /**
-     * Legacy method that combines cache and server operations
-     * @param clerk_user - The Clerk user object
+     * Combines cache and server operations for fetching user data
+     * @param authUser - The authenticated user object
      * @returns true if the data was successfully fetched
      */
-    async fetchUserData(clerk_user: ClerkUser): Promise<boolean> {
-      const gotCachedData = this.fetchUserDataFromCache(clerk_user);
+    async fetchUserData(authUser: AuthUser): Promise<boolean> {
+      const gotCachedData = this.fetchUserDataFromCache(authUser);
 
       if (!gotCachedData) {
         // If no cache data, we must wait for the server data
-        return await this.fetchUserDataFromServer(clerk_user);
+        return await this.fetchUserDataFromServer(authUser);
       }
 
       // If we had cache data, still fetch from server but don't wait
-      this.fetchUserDataFromServer(clerk_user).catch((error) => {
+      this.fetchUserDataFromServer(authUser).catch((error) => {
         console.error("Error fetching user data from server:", error);
       });
-
-      return true;
-    },
-
-    async confirmSubscription(): Promise<boolean> {
-      if (!this.userId || !this.email) {
-        throw new Error("User ID or email not found");
-      }
-
-      const response = await api.get(API.CONFIRM_SUBSCRIPTION);
-      if (response.status !== 200) {
-        throw new Error(
-          `Failed to confirm subscription, status: ${response.status}`,
-        );
-      }
 
       return true;
     },
@@ -184,6 +162,25 @@ export const useUserStore = defineStore("user", {
 
     getAuthToken(): string | null {
       return this.auth_token;
+    },
+
+    /**
+     * Clears all user state on logout
+     */
+    clearUser(): void {
+      this.userId = null;
+      this.firstName = null;
+      this.lastName = null;
+      this.email = null;
+      this.userPlan = null;
+      this.isLoading = false;
+      this.error = null;
+      this.auth_token = null;
+
+      // Clear all cached data
+      cache.clear(CacheKeys.USER);
+      cache.clear(CacheKeys.LINKS);
+      cache.clear(CacheKeys.SETTINGS);
     },
   },
 });
