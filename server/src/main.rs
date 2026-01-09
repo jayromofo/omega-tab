@@ -15,7 +15,7 @@ use brave::Brave;
 use chrono::Utc;
 use database::Database;
 use dotenv::dotenv;
-use middleware::{authenticate_user, extract_user, UserContext};
+use middleware::{authenticate_user, UserContext};
 use resend::ResendClient;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
@@ -255,7 +255,6 @@ async fn runtime() {
         .route("/staging_login", post(staging_login_handler))
         .with_state(app_state)
         .layer(axum::middleware::from_fn(authenticate_user))
-        .layer(axum::middleware::from_fn(extract_user))
         .layer(cors);
 
     let listener = tokio::net::TcpListener::bind("0.0.0.0:3000").await.unwrap();
@@ -314,7 +313,7 @@ async fn register_handler(
         })?;
 
     // Generate JWT token
-    let token = user_jwt::generate_jwt(&user.id, &plan.id).map_err(|e| {
+    let token = user_jwt::generate_jwt(&user.id, &user.email, &plan.id).map_err(|e| {
         tracing::error!("Failed to generate JWT: {:?}", e);
         StatusCode::INTERNAL_SERVER_ERROR
     })?;
@@ -357,7 +356,7 @@ async fn login_handler(
     };
 
     // Generate JWT token
-    let token = user_jwt::generate_jwt(&user.id, &plan_id).map_err(|e| {
+    let token = user_jwt::generate_jwt(&user.id, &user.email, &plan_id).map_err(|e| {
         tracing::error!("Failed to generate JWT: {:?}", e);
         StatusCode::INTERNAL_SERVER_ERROR
     })?;
@@ -1282,7 +1281,7 @@ async fn get_user_data_handler(
     })?;
 
     // Generate JWT token with user ID and plan info
-    let auth_token = user_jwt::generate_jwt(&user_id, &plan.name).map_err(|e| {
+    let auth_token = user_jwt::generate_jwt(&user_id, &user_email, &plan.name).map_err(|e| {
         tracing::error!("Failed to generate JWT token: {:?}", e);
         println!("Failed to generate JWT token: {:?}", e);
         StatusCode::INTERNAL_SERVER_ERROR

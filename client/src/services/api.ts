@@ -1,5 +1,5 @@
-import { useUserStore } from "@/stores/user";
 // src/services/api.ts
+import { useUserStore } from "@/stores/user";
 import axios, { type AxiosInstance } from "axios";
 
 const api: AxiosInstance = axios.create({
@@ -7,13 +7,9 @@ const api: AxiosInstance = axios.create({
   timeout: 10000, // Optional
 });
 
-// Request interceptor to add custom headers
+// Request interceptor to add auth header
 api.interceptors.request.use(
   (config) => {
-    const userStore = useUserStore();
-    // Add your custom headers here
-    config.headers.set("X-User-Id", userStore.userId);
-    config.headers.set("X-User-Email", userStore.email);
     config.headers.set(
       "Authorization",
       `Bearer ${localStorage.getItem("token") || ""}`,
