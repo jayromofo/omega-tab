@@ -2,6 +2,14 @@
 
 A customizable browser new tab replacement that helps you organize your most-used links, search the web, and boost productivity.
 
+## Open Source Migration
+
+This was original built as a for-profit platform, but I've decided to release it as a free, open-source platform that you can host locally. 
+
+With that in mind, all of our current features and functionality needs to be redesigned to be simpler, easier, and faster.
+
+We're leaving user-based everything intact, in case anyone want's to host this for other's to use together, so multiple people can use a single instance and not have to share the same lame links.
+
 ## Tech Stack
 
 ### Client App (Vue.js)
