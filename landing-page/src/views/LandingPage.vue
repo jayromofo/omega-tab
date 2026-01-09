@@ -1,298 +1,128 @@
-<!-- LandingPage.vue -->
 <template>
-  <div class="min-h-screen bg-[rgb(3,5,21)] relative">
-    <!-- Gradient Overlay -->
-    <div class="absolute top-0 right-0 w-full h-full animated-gradient"></div>
-
+  <div class="min-h-screen">
     <AppHeader />
 
     <!-- Hero Section -->
-    <div class="container mx-auto px-4 py-24">
-      <!-- Update Badge -->
-      <div class="flex justify-center mb-8">
-        <a href="#"
-          class="inline-flex items-center px-4 py-2 rounded-full bg-gray-800 text-gray-300 hover:text-white transition-colors">
-          <span>v0.1.0 Soon</span>
-          <v-icon icon="mdi-chevron-right" size="small" />
-        </a>
-      </div>
-
-      <!-- Hero Content -->
-      <div class="text-center max-w-4xl mx-auto">
-        <h1 class="text-4xl md:text-6xl font-bold text-white mb-6 leading-tight">
-          A
-          <span class="text-blue-400">better new tab</span>
-          for your browser
-        </h1>
-        <p class="text-xl text-gray-300 mb-12">
-          Create a personalized launch pad for all your tools and resources.
-          Access everything you need in one place, with powerful search and integrations.
-        </p>
-
-        <!-- Homepage Image -->
-        <div class="flex justify-center mb-8 z-10 relative">
-          <img src="/copy/homepage.png" alt="Hero Image" class="w-full rounded-lg shadow-lg" />
+    <section class="tp-section">
+      <div class="tp-container text-center">
+        <!-- Badge -->
+        <div class="flex justify-center mb-8">
+          <span class="inline-flex items-center px-4 py-2 text-sm tp-secondary border border-tp-border rounded">
+            Free &amp; Open Source
+          </span>
         </div>
 
-        <!-- Signup CTA -->
-        <div class="max-w-lg mx-auto">
-          <div class="flex justify-center">
-            <button @click="showSignIn"
-              class="px-8 py-4 rounded-full bg-white/5 backdrop-filter backdrop-blur-lg text-white hover:bg-white/5 active:bg-white/10 transition-colors flex items-center space-x-2 shadow-inner shadow-white/20">
-              <span class="text-lg">Get Started</span>
-              <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 24 24" fill="none"
+        <!-- Hero Content -->
+        <div class="max-w-3xl mx-auto">
+          <h1 class="text-4xl md:text-5xl font-bold mb-6 leading-tight">
+            A <span class="tp-accent">better new tab</span> for your browser
+          </h1>
+          <p class="text-lg tp-secondary mb-12 max-w-2xl mx-auto">
+            Create a personalized launch pad for all your tools and resources.
+            Access everything you need in one place, with powerful search and integrations.
+          </p>
+
+          <!-- Homepage Image -->
+          <div class="mb-8">
+            <img src="/copy/homepage.png" alt="BetterNewTab Homepage" class="w-full rounded shadow-lg border border-tp-border" />
+          </div>
+
+          <!-- CTA -->
+          <div class="flex flex-col sm:flex-row items-center justify-center gap-4">
+            <a :href="docsUrl + '/getting-started'" class="tp-btn tp-btn-primary">
+              Get Started
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 24 24" fill="none"
                 stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                 <path d="M5 12h14M12 5l7 7-7 7" />
               </svg>
-            </button>
-          </div>
-
-          <!-- Trial Info -->
-          <div class="flex justify-center items-center space-x-6 mt-6 text-gray-400">
-            <div class="flex items-center">
-              <span>Free to try</span>
-            </div>
+            </a>
+            <a href="https://github.com/LostRhapsody/betternewtab" target="_blank" class="tp-btn tp-btn-secondary">
+              View on GitHub
+            </a>
           </div>
         </div>
       </div>
-    </div>
-    <!-- Build your own new tab landing page -->
-    <div class="container max-w-4xl mx-auto px-4 py-24 text-center">
-      <h2 class="text-3xl md:text-4xl font-bold text-white mb-6">Build your own new tab landing page</h2>
-      <p class="text-xl text-gray-300 mb-12">
-        Customize your new tab page with your favorite tools and resources.
-      </p>
-      <!-- Add Link Image -->
-      <div class="flex justify-center mb-8 z-10 relative">
-          <img src="/copy/add_link.png" alt="Hero Image" class="w-full rounded-lg shadow-lg" />
-      </div>
-    </div>
+    </section>
 
-    <!-- Keyboard oriented control with intuitive shortcuts -->
-    <div class="container max-w-4xl mx-auto px-4 py-24 text-center">
-      <h2 class="text-3xl md:text-4xl font-bold text-white mb-6">Keyboard oriented control with intuitive shortcuts</h2>
-      <p class="text-xl text-gray-300 mb-12">
-        Navigate and control your new tab page with ease using keyboard shortcuts.
-      </p>
-      <!-- Shortcuts Image -->
-      <div class="flex justify-center mb-8 z-10 relative">
-          <img src="/copy/shortcuts.png" alt="Hero Image" class="w-full rounded-lg shadow-lg" />
+    <!-- Build your own new tab -->
+    <section class="tp-section">
+      <div class="tp-container max-w-3xl text-center">
+        <h2 class="text-2xl md:text-3xl font-bold mb-4">Build your own new tab landing page</h2>
+        <p class="text-lg tp-secondary mb-8">
+          Customize your new tab page with your favorite tools and resources.
+        </p>
+        <div>
+          <img src="/copy/add_link.png" alt="Add Link Feature" class="w-full rounded shadow-lg border border-tp-border" />
+        </div>
       </div>
-    </div>
+    </section>
 
-    <!-- A super-powered search bar -->
-    <div class="container max-w-4xl mx-auto px-4 py-24 text-center">
-      <h2 class="text-3xl md:text-4xl font-bold text-white mb-6">A super-powered search bar</h2>
-      <p class="text-xl text-gray-300 mb-12">
-        Search across all your tools and resources from one place.
-      </p>
-      <em class="text-lg text-gray-300">Quickly find your pinned links</em>
-      <!-- My link Image -->
-      <div class="flex justify-center mb-8 z-10 relative">
-          <img src="/copy/my_link.png" alt="Hero Image" class="w-full rounded-lg shadow-lg" />
+    <!-- Keyboard shortcuts -->
+    <section class="tp-section">
+      <div class="tp-container max-w-3xl text-center">
+        <h2 class="text-2xl md:text-3xl font-bold mb-4">Keyboard oriented control with intuitive shortcuts</h2>
+        <p class="text-lg tp-secondary mb-8">
+          Navigate and control your new tab page with ease using keyboard shortcuts.
+        </p>
+        <div>
+          <img src="/copy/shortcuts.png" alt="Keyboard Shortcuts" class="w-full rounded shadow-lg border border-tp-border" />
+        </div>
       </div>
-      <!-- Suggestions Image -->
-      <em class="text-lg text-gray-300">Get search suggestions based on a local search history and your search terms</em>
-      <div class="flex justify-center mb-8 z-10 relative">
-          <img src="/copy/suggestions.png" alt="Hero Image" class="w-full rounded-lg shadow-lg" />
-      </div>
-    </div>
+    </section>
 
+    <!-- Search bar -->
+    <section class="tp-section">
+      <div class="tp-container max-w-3xl text-center">
+        <h2 class="text-2xl md:text-3xl font-bold mb-4">A super-powered search bar</h2>
+        <p class="text-lg tp-secondary mb-8">
+          Search across all your tools and resources from one place.
+        </p>
+
+        <p class="tp-muted mb-4">Quickly find your pinned links</p>
+        <div class="mb-8">
+          <img src="/copy/my_link.png" alt="Find Links" class="w-full rounded shadow-lg border border-tp-border" />
+        </div>
+
+        <p class="tp-muted mb-4">Get search suggestions based on local history and your search terms</p>
+        <div>
+          <img src="/copy/suggestions.png" alt="Search Suggestions" class="w-full rounded shadow-lg border border-tp-border" />
+        </div>
+      </div>
+    </section>
 
     <!-- Command Palette -->
-    <div class="container max-w-4xl mx-auto px-4 py-24 text-center">
-      <h2 class="text-3xl md:text-4xl font-bold text-white mb-6">The power users favorite</h2>
-      <p class="text-xl text-gray-300 mb-12">
-        Navigate quickly to your links, settings, or actions with the command palette.
-      </p>
-      <em class="text-lg text-gray-300">Open with easily <kbd class="kbd">Ctrl+K</kbd></em>
-      <!-- My link Image -->
-      <div class="flex justify-center mt-2 mb-8 z-10 relative">
-          <img src="/copy/command_palette.png" alt="Hero Image" class="w-full rounded-lg shadow-lg" />
+    <section class="tp-section">
+      <div class="tp-container max-w-3xl text-center">
+        <h2 class="text-2xl md:text-3xl font-bold mb-4">The power user's favorite</h2>
+        <p class="text-lg tp-secondary mb-8">
+          Navigate quickly to your links, settings, or actions with the command palette.
+        </p>
+
+        <p class="tp-muted mb-4">Open with <kbd>Ctrl+K</kbd></p>
+        <div class="mb-8">
+          <img src="/copy/command_palette.png" alt="Command Palette" class="w-full rounded shadow-lg border border-tp-border" />
+        </div>
+
+        <p class="tp-muted mb-4">Type to perform actions, open links, or navigate to settings</p>
+        <div>
+          <img src="/copy/command_new_link.png" alt="Command Palette Actions" class="w-full rounded shadow-lg border border-tp-border" />
+        </div>
       </div>
-      <!-- Suggestions Image -->
-      <em class="text-lg text-gray-300">Type to perform actions, open links, or navigate to settings.</em>
-      <div class="flex justify-center mb-8 z-10 relative">
-          <img src="/copy/command_new_link.png" alt="Hero Image" class="w-full rounded-lg shadow-lg" />
-      </div>
-    </div>
-
-    <!-- Integrations for the best tools -->
-    <div class="container max-w-4xl mx-auto px-4 py-12 text-center">
-      <a href="#"
-          class="inline-flex items-center px-4 py-2 mb-2 rounded-full bg-gray-800 text-gray-300 hover:text-white transition-colors">
-          <span>Coming Soon!</span>
-        </a>
-      <h2 class="text-3xl md:text-4xl font-bold text-white mb-6">Integrations for the best tools</h2>
-      <p class="text-xl text-gray-300 mb-12">
-        Connect with your favorite tools and services for a seamless experience with support for Jira, Confluence, Linear, and more.
-      </p>
-    </div>
-
-    <!-- Pricing -->
-    <div class="container mx-auto px-4 py-24 text-center">
-      <h2 id="pricing" class="text-3xl md:text-4xl font-bold text-white mb-6">Pricing</h2>
-      <p class="text-xl text-gray-300 mb-12">
-        Choose a plan that fits your needs. Free and premium options available.
-      </p>
-      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-        <!-- Free Plan -->
-        <v-card class="!bg-white/5 !shadow-lg !rounded-lg !p-6 !shadow-white/10 plan-card">
-          <v-card-item>
-            <v-card-title class="text-h4 mb-2">Free</v-card-title>
-            <div class="text-h3 mb-1">$0</div>
-            <div class="text-caption mb-4">per month</div>
-            <v-divider class="mb-4"></v-divider>
-            <v-list class="!bg-transparent">
-              <v-list-item class="text-start" v-for="feature in FreePlanFeatures" :key="feature">
-                <v-list-item-title><v-icon icon="mdi-check" class="mr-2 text-blue-400"></v-icon>{{ feature
-                  }}</v-list-item-title>
-              </v-list-item>
-            </v-list>
-          </v-card-item>
-          <v-card-actions class="pa-4">
-            <button @click="handleShowSignUp"
-              class="px-8 py-4 rounded-full bg-blue-500/70 text-white hover:bg-blue-600 transition-colors w-full">
-              Get Started
-            </button>
-          </v-card-actions>
-        </v-card>
-
-        <!-- Plus Plan -->
-        <v-card class="!bg-white/5 !shadow-lg !rounded-lg !p-6 !shadow-white/10 plan-card">
-          <v-card-item>
-            <v-card-title class="text-h4 mb-2">Plus</v-card-title>
-            <div class="text-h3 mb-1">$5</div>
-            <div class="text-caption mb-4">per month</div>
-            <v-divider class="mb-4"></v-divider>
-            <v-list class="!bg-transparent">
-              <v-list-item class="text-start" v-for="feature in PlusPlanFeatures" :key="feature">
-                <v-list-item-title><v-icon icon="mdi-check" class="mr-2 text-blue-400"></v-icon>{{ feature
-                  }}</v-list-item-title>
-              </v-list-item>
-            </v-list>
-          </v-card-item>
-          <v-card-actions class="pa-4">
-            <a class="w-full" :href=PlusPlanUrl>
-              <button
-                class="px-8 py-4 rounded-full bg-blue-500/70 text-white hover:bg-blue-600 transition-colors w-full">
-                Get BetterNewTab+!
-              </button>
-            </a>
-          </v-card-actions>
-        </v-card>
-
-        <!-- Pro Plan -->
-        <v-card class="!bg-white/5 !shadow-lg !rounded-lg !p-6 !shadow-white/10 plan-card">
-          <v-card-item>
-            <v-card-title class="text-h4 mb-2">Pro</v-card-title>
-            <div class="text-h3 mb-1">$10</div>
-            <div class="text-caption mb-4">per month</div>
-            <v-divider class="mb-4"></v-divider>
-            <v-list class="!bg-transparent">
-              <v-list-item class="text-start" v-for="feature in ProPlanFeatures" :key="feature">
-                <v-list-item-title><v-icon icon="mdi-check" class="mr-2 text-blue-400"></v-icon>{{ feature
-                  }}</v-list-item-title>
-              </v-list-item>
-            </v-list>
-          </v-card-item>
-          <v-card-actions class="pa-4">
-            <!-- :href=ProPlanUrl -->
-            <button disabled
-              class="px-8 py-4 rounded-full bg-blue-500/70 text-white transition-colors w-full">
-              <!-- Get BetterNewTab Pro! -->
-                Coming Soon!
-            </button>
-          </v-card-actions>
-        </v-card>
-      </div>
-    </div>
+    </section>
 
     <AppFooter />
-    <AuthModal ref="authModalRef" />
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref } from "vue";
-import { FreePlanFeatures, PlusPlanFeatures, ProPlanFeatures } from "@/data/plans";
-import AppHeader from "@/components/AppHeader.vue";
 import AppFooter from "@/components/AppFooter.vue";
-import AuthModal from "@/components/AuthModal.vue";
-import type { AuthModalMethods } from "@/types/AuthModalMethods";
+import AppHeader from "@/components/AppHeader.vue";
 
-const authModalRef = ref<AuthModalMethods | null>(null);
-const PlusPlanUrl = import.meta.env.VITE_PLUS_PLAN_URL;
-const ProPlanUrl = import.meta.env.VITE_PRO_PLAN_URL;
-
-const showSignIn = () => {
-  authModalRef.value?.openLogin();
-};
-
-const handleShowSignUp = () => {
-  authModalRef.value?.openSignUp();
-};
-
+const docsUrl = import.meta.env.VITE_DOCS_URL || "/docs";
 </script>
 
 <style scoped>
-.v-text-field :deep(.v-field__input) {
-  color: white !important;
-}
-
-.v-text-field :deep(.v-field__outline) {
-  --v-field-border-opacity: 0.2;
-}
-
-.animated-gradient {
-  animation: animateBg 12s ease infinite;
-  background-image: linear-gradient(45deg, rgba(255, 255, 255, 0.6), rgb(141, 145, 255));
-  background-size: 400% 400%;
-  opacity: 0.5;
-}
-
-@keyframes animateBg {
-  0% {
-    background-position: 0% 50%;
-  }
-
-  50% {
-    background-position: 100% 50%;
-  }
-
-  100% {
-    background-position: 0% 50%;
-  }
-}
-
-.plan-card {
-  height: 100%;
-  display: flex;
-  flex-direction: column;
-  transition: transform 0.2s;
-  justify-content: space-between;
-}
-
-.plan-card:hover {
-  transform: translateY(-5px);
-}
-
-div {
-  white-space: normal !important;
-  overflow: visible !important;
-  text-overflow: clip !important;
-}
-
-.kbd {
-  background-color: #313131;
-  border: 1px solid #838383;
-  border-radius: 3px;
-  box-shadow: 0 1px 0 rgba(0, 0, 0, 0.2);
-  color: #b4b4b4;
-  display: inline-block;
-  font-size: 0.85em;
-  font-family: Monaco, Menlo, Consolas, monospace;
-  padding: 2px 4px;
-  white-space: nowrap;
+.border-tp-border {
+  border-color: var(--tp-border);
 }
 </style>
