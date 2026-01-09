@@ -69,8 +69,6 @@ CREATE DATABASE betternewtab;
 
 ### 3. Run Database Migrations
 
-**NOTE**: This doesn't really work. We need to copy the files over to the container, I think.
-
 ```bash
 cd server
 

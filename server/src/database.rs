@@ -46,7 +46,6 @@ pub struct Plan {
     pub max_pins: i32,
     pub features: serde_json::Value,
     pub created_at: DateTime<Utc>,
-    pub stripe_id: Option<String>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Default, Clone, FromRow)]
@@ -58,7 +57,6 @@ pub struct Subscription {
     #[sqlx(try_from = "sqlx::types::Uuid")]
     pub plan_id: String,
     pub status: String,
-    pub stripe_subscription_id: String,
     pub current_period_end: DateTime<Utc>,
     pub created_at: DateTime<Utc>,
 }
@@ -214,28 +212,6 @@ impl Database {
 
         tracing::info!("Successfully verified password for user: {}", email);
         Ok(user)
-    }
-
-    pub async fn get_plan_by_stripe_id(&self, stripe_id: &str) -> Result<Plan> {
-        tracing::info!("Fetching plan by stripe ID: {}", stripe_id);
-
-        let plan = sqlx::query_as::<_, Plan>("SELECT * FROM plans WHERE stripe_id = $1")
-            .bind(stripe_id)
-            .fetch_optional(&self.pool)
-            .await?;
-
-        match plan {
-            Some(plan) => {
-                tracing::info!("Successfully fetched plan by stripe ID");
-                println!("Successfully fetched plan by stripe ID");
-                Ok(plan)
-            }
-            None => {
-                tracing::info!("Plan not found for stripe ID: {}", stripe_id);
-                println!("Plan not found for stripe ID: {}", stripe_id);
-                Err(anyhow::anyhow!("Plan not found"))
-            }
-        }
     }
 
     pub async fn create_user(&self, user: User) -> Result<User> {
@@ -555,7 +531,6 @@ impl Database {
         entity_type: &str,
         plan_id: &str,
         status: &str,
-        stripe_subscription_id: &str,
         current_period_end: DateTime<Utc>,
     ) -> Result<Subscription> {
         let sub_uuid = uuid::Uuid::new_v4();
@@ -565,23 +540,21 @@ impl Database {
             entity_type: entity_type.to_string(),
             plan_id: plan_id.to_string(),
             status: status.to_string(),
-            stripe_subscription_id: stripe_subscription_id.to_string(),
-            current_period_end: current_period_end,
+            current_period_end,
             created_at: chrono::Utc::now(),
         };
 
         tracing::info!("Creating subscription with payload: {:?}", subscription);
 
         let result = sqlx::query(
-            "INSERT INTO subscriptions (id, entity_id, entity_type, plan_id, status, stripe_subscription_id, current_period_end, created_at)
-             VALUES ($1, $2, $3, $4, $5, $6, $7, $8)"
+            "INSERT INTO subscriptions (id, entity_id, entity_type, plan_id, status, current_period_end, created_at)
+             VALUES ($1, $2, $3, $4, $5, $6, $7)"
         )
         .bind(&sub_uuid)
         .bind(&subscription.entity_id)
         .bind(&subscription.entity_type)
         .bind(uuid::Uuid::parse_str(&subscription.plan_id).expect("Invalid UUID format"))
         .bind(&subscription.status)
-        .bind(&subscription.stripe_subscription_id)
         .bind(&subscription.current_period_end)
         .bind(&subscription.created_at)
         .execute(&self.pool)
@@ -604,14 +577,13 @@ impl Database {
         let result = sqlx::query(
             "UPDATE subscriptions
             SET entity_id = $1, entity_type = $2, plan_id = $3,
-            status = $4, stripe_subscription_id = $5, current_period_end = $6
-            WHERE id = $7",
+            status = $4, current_period_end = $5
+            WHERE id = $6",
         )
         .bind(&subscription.entity_id)
         .bind(&subscription.entity_type)
         .bind(&subscription.plan_id)
         .bind(&subscription.status)
-        .bind(&subscription.stripe_subscription_id)
         .bind(&subscription.current_period_end)
         .bind(&subscription.id)
         .execute(&self.pool)
@@ -791,7 +763,6 @@ impl Database {
             s.entity_type as subscription_entity_type,
             s.plan_id as subscription_plan_id,
             s.status as subscription_status,
-            s.stripe_subscription_id as subscription_stripe_subscription_id,
             s.current_period_end as subscription_current_period_end,
             s.created_at as subscription_created_at,
             us.settings_blob as settings_blob,
@@ -839,7 +810,6 @@ impl Database {
                     .get::<uuid::Uuid, _>("subscription_plan_id")
                     .to_string(),
                 status: first_row.get("subscription_status"),
-                stripe_subscription_id: first_row.get("subscription_stripe_subscription_id"),
                 current_period_end: first_row.get("subscription_current_period_end"),
                 created_at: first_row.get("subscription_created_at"),
             })

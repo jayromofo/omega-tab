@@ -2,7 +2,6 @@ mod brave;
 mod database;
 mod middleware;
 mod resend;
-mod stripe_client;
 mod user_jwt;
 
 use axum::{
@@ -13,7 +12,7 @@ use axum::{
 };
 use base64::prelude::*;
 use brave::Brave;
-use chrono::{TimeZone, Utc};
+use chrono::Utc;
 use database::Database;
 use dotenv::dotenv;
 use middleware::{authenticate_user, extract_user, UserContext};
@@ -21,17 +20,9 @@ use resend::ResendClient;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 use std::{collections::HashMap, env};
-use stripe::{Event, EventType, Subscription};
-use stripe_client::StripeClient;
 use tower_http::cors::{Any, CorsLayer};
 use tracing_subscriber::prelude::*;
 use url::Url;
-
-#[derive(Serialize, Clone)]
-pub struct SubscriptionResponse {
-    plan_id: String,
-    current_period_end: i64,
-}
 
 #[derive(Deserialize)]
 pub struct CreateUserRequest {
@@ -73,12 +64,6 @@ pub struct SuggestionResponse {
     suggestions: Vec<brave::Suggestion>,
 }
 
-#[derive(Deserialize, Debug)]
-pub struct FeedbackRequest {
-    reasons: Option<stripe::UpdateSubscriptionCancellationDetailsFeedback>,
-    feedback_comment: Option<String>,
-}
-
 #[derive(Deserialize, Serialize, Clone, Debug)]
 pub struct UserSettingsRequest {
     search_history: bool,
@@ -90,10 +75,15 @@ pub struct UserSettingsRequest {
     metadata: bool,
 }
 
+#[derive(Deserialize, Debug)]
+pub struct FeedbackRequest {
+    reasons: Option<String>,
+    feedback_comment: Option<String>,
+}
+
 #[derive(Serialize)]
 pub struct UserDataResponse {
     user: database::User,
-    subscription: Option<SubscriptionResponse>,
     plan: Option<database::Plan>,
     settings: Option<database::UserSettings>,
     links: Vec<database::Link>,
@@ -128,28 +118,6 @@ pub struct StagingLoginRequest {
 pub struct AppState {
     pub client: reqwest::Client,
     pub database: Database,
-}
-
-// New helper function to disable premium features in user settings
-fn disable_premium_features(settings_blob: &mut serde_json::Value) {
-    if let Some(obj) = settings_blob.as_object_mut() {
-        // Disable all premium features
-        if obj.contains_key("autosuggest") {
-            obj["autosuggest"] = json!(false);
-        }
-        if obj.contains_key("jira_api") {
-            obj["jira_api"] = json!(false);
-        }
-        if obj.contains_key("confluence_api") {
-            obj["confluence_api"] = json!(false);
-        }
-        if obj.contains_key("linear_api") {
-            obj["linear_api"] = json!(false);
-        }
-        if obj.contains_key("metadata") {
-            obj["metadata"] = json!(false);
-        }
-    }
 }
 
 fn main() {
@@ -250,10 +218,6 @@ async fn runtime() {
         .route("/register", post(register_handler))
         .route("/login", post(login_handler))
         .route("/health", get(health_check))
-        // confirm subscription
-        .route("/confirm", get(confirm_handler))
-        // cancel subscription
-        .route("/cancel", post(cancel_handler))
         // create and update links
         .route("/link", post(create_link).put(update_link))
         // read links
@@ -286,8 +250,6 @@ async fn runtime() {
             "/settings",
             post(create_settings).put(update_settings).get(get_settings),
         )
-        // cancel subscription event listener for Stripe
-        .route("/stripe_cancel_hook", post(cancel_subscription_hook))
         .route("/user_data", get(get_user_data_handler))
         // Add staging login route - doesn't need authentication
         .route("/staging_login", post(staging_login_handler))
@@ -343,7 +305,6 @@ async fn register_handler(
             "user",
             &plan.id,
             "active",
-            "",
             Utc::now() + chrono::Duration::days(365 * 100), // Free plan never expires
         )
         .await
@@ -476,260 +437,6 @@ async fn create_user_handler(
             }
         }
     }
-}
-
-/// Handles the confirmation of a user's subscription status.
-///
-/// This function performs the following steps:
-/// 1. Retrieves the Stripe customer associated with the provided email.
-/// 2. Retrieves the Stripe subscription associated with the customer.
-/// 3. Checks if the subscription is active.
-/// 4. Retrieves the corresponding Supabase plan based on the Stripe product ID.
-/// 5. Verifies and updates the user's subscription record in Supabase.
-/// 6. Verifies and creates the user's membership record in Supabase if it doesn't exist.
-///
-/// # Arguments
-///
-/// * `Path((user_email, user_id))` - A tuple containing the user's email and user ID.
-/// * sent to the server as  /confirm/{user_email}/{user_id}
-///
-/// # Returns
-///
-/// * `Result<Json<SubscriptionResponse>, StatusCode>` - A JSON response containing the subscription details or an error status code.
-/// * If no subscription is found, the function returns a free plan ID and a current period end of 0.
-///
-/// # Errors
-///
-/// This function returns an appropriate `StatusCode` in case of errors:
-/// * `StatusCode::INTERNAL_SERVER_ERROR` - If there is an internal server error.
-/// * `StatusCode::NOT_FOUND` - If the user is not found in Supabase.
-/// * `StatusCode::BAD_REQUEST` - If there is a conflict with the existing subscription.
-///
-/// # Example
-///
-/// ```rust
-/// let response = confirm_handler(Path(("user@example.com".to_string(), "user_id".to_string()))).await;
-/// match response {
-///     Ok(json) => println!("Subscription confirmed: {:?}", json),
-///     Err(status) => println!("Error confirming subscription: {:?}", status),
-/// }
-/// ```
-// #[tracing::instrument]
-async fn confirm_handler(
-    State(app_state): State<AppState>,
-    Extension(user_context): Extension<UserContext>,
-) -> Result<Json<SubscriptionResponse>, StatusCode> {
-    let user_email = user_context.email.clone();
-    let user_id = user_context.user_id.clone();
-    println!("Confirming email: {}", user_email);
-
-    sentry::configure_scope(|scope| {
-        scope.set_user(Some(sentry::User {
-            email: Some(user_email.clone()),
-            id: Some(user_id.clone()),
-            ..Default::default()
-        }));
-        scope.set_tag("http.method", "GET");
-    });
-
-    let free_plan_id = std::env::var("FREE_PLAN_ID").expect("FREE_PLAN_ID must be set");
-
-    // Use app_state's Supabase instance instead of creating a new one
-    let database = &app_state.database;
-
-    println!("Initialized Supabase client");
-    println!("Getting customer from Stripe");
-    // Get Stripe customer - if one has not been created, they have not subscribed
-    let customer = match StripeClient::get_customer(&user_email).await {
-        Some(customer) => customer,
-        None => {
-            println!("No customer found, returning free plan");
-            return Ok(Json(SubscriptionResponse {
-                plan_id: free_plan_id,
-                current_period_end: 0,
-            }));
-        }
-    };
-
-    println!("Got customer from Stripe, getting subscription");
-    // Get Stripe subscription - if one is not returned, they have not subscribed (or subscription is inactive)
-    // TODO - cleanup task, if the subscription EXISTS in Supbase but NOT stripe, then the customer probably
-    // unsubscribed somehow. We should cancel the subscription in Supabase as well.
-    let subscription = match StripeClient::get_subscription(&customer).await {
-        Some(sub) => sub,
-        None => {
-            println!("No subscription found, returning free plan");
-            return Ok(Json(SubscriptionResponse {
-                plan_id: free_plan_id,
-                current_period_end: 0,
-            }));
-        }
-    };
-
-    println!("Got subscription from Stripe");
-
-    // Check if subscription is still valid based on status and current period end
-    let current_timestamp = chrono::Utc::now().timestamp();
-
-    // Check both the subscription status and whether the current period has ended
-    let has_valid_subscription = subscription.status.eq(&stripe::SubscriptionStatus::Active)
-        && subscription.current_period_end > current_timestamp;
-
-    // Check if subscription is scheduled to be canceled at period end
-    let is_canceling = subscription.cancel_at_period_end;
-
-    println!(
-        "Subscription status: {:?}, Period end: {}, Current time: {}, Is canceling: {}",
-        subscription.status, subscription.current_period_end, current_timestamp, is_canceling
-    );
-
-    if !has_valid_subscription {
-        println!("Subscription is not active or period has ended");
-        return Ok(Json(SubscriptionResponse {
-            plan_id: free_plan_id,
-            current_period_end: 0,
-        }));
-    }
-
-    // Get the subscription item - we need the product id for later
-    let item = subscription
-        .items
-        .data
-        .first()
-        .ok_or(StatusCode::INTERNAL_SERVER_ERROR)?;
-
-    let plan = item
-        .plan
-        .as_ref()
-        .ok_or(StatusCode::INTERNAL_SERVER_ERROR)?;
-
-    let product_id = plan
-        .product
-        .as_ref()
-        .ok_or(StatusCode::INTERNAL_SERVER_ERROR)?
-        .id();
-
-    println!("Got product id: {}", product_id);
-
-    let user = database
-        .get_user(&user_id)
-        .await
-        .map_err(|e| match e.to_string().as_str() {
-            "404" => {
-                println!(
-                    "User not found, can't create new user for: {} because signup was supposed to be done through Clerk",
-                    user_email
-                );
-                StatusCode::NOT_FOUND
-            }
-            _ => StatusCode::INTERNAL_SERVER_ERROR,
-    })?;
-
-    // Get corresponding Supabase plan
-    let supabase_plan = database
-        .get_plan_by_stripe_id(&product_id.to_string())
-        .await
-        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
-
-    println!("Supabase plan: {:?}", supabase_plan);
-
-    /*
-    Note: The subscription has been verified as active in stripe above
-    so everything below is just to verify and update the subscription record in Supabase
-    */
-
-    // Verify subscription record
-    let sub_result = database.get_user_subscription(&user.id).await;
-
-    // verify we got the subscription
-    match sub_result {
-        Ok(sub) => {
-            println!("Got subscription from Supabase");
-            // Update existing subscription if plan changed or status has changed
-            let should_update = sub.plan_id != supabase_plan.id
-                || sub.status != "active"
-                || is_canceling && sub.status != "cancelling";
-
-            if should_update {
-                println!("Updating subscription with status: {}", &sub.status);
-        database.update_subscription(sub).await.map_err(|e| {
-                    println!("Error updating subscription: {:?}", e);
-                    tracing::error!("Error updating subscription: {:?}", e);
-                    StatusCode::INTERNAL_SERVER_ERROR
-                })?;
-            }
-        }
-        Err(err) => {
-            println!("Error: {:?}", err);
-            println!("No subscription found, creating subscription");
-            // Create new subscription
-            let new_sub = database::Subscription {
-                id: uuid::Uuid::new_v4().to_string(),
-                entity_id: user.id.clone(),
-                entity_type: "user".to_string(),
-                plan_id: supabase_plan.clone().id,
-                status: if is_canceling { "cancelling" } else { "active" }.to_string(),
-                stripe_subscription_id: subscription.id.to_string(),
-                current_period_end: Utc
-                    .timestamp_opt(subscription.current_period_end, 0)
-                    .unwrap(),
-                created_at: Utc::now(),
-            };
-
-            println!("new_sub: {:?}", new_sub);
-            if let Err(e) = database
-                .create_subscription(
-                    &new_sub.entity_id,
-                    &new_sub.entity_type,
-                    &new_sub.plan_id,
-                    &new_sub.status,
-                    &new_sub.stripe_subscription_id,
-                    new_sub.current_period_end,
-                )
-                .await
-            {
-                println!("Error creating subscription: {:?}", e);
-                return Err(StatusCode::INTERNAL_SERVER_ERROR);
-            }
-        }
-    }
-
-    // Verify/create user membership
-    let membership_result = database.get_user_memberships(&user.id).await;
-
-    match membership_result {
-        Ok(memberships) => {
-            println!("Got membership vector from Supabase");
-            if memberships.is_empty() {
-                println!("Vector is empty, creating membership record");
-                let membership = database::UserMembership {
-                    user_id: user.id.clone(),
-                    entity_id: user.id.clone(),
-                    entity_type: "user".to_string(),
-                    role: "owner".to_string(),
-                    created_at: Utc::now(),
-                };
-
-                println!("new membership: {:?}", membership);
-                if let Err(e) = database.add_member(membership).await {
-                    println!("Error creating membership: {:?}", e);
-                    return Err(StatusCode::INTERNAL_SERVER_ERROR);
-                }
-                println!("Membership created successfully");
-            }
-        }
-        Err(_) => {
-            println!("Error getting membership vector from Supabase");
-            return Err(StatusCode::INTERNAL_SERVER_ERROR);
-        }
-    }
-
-    println!("Returning response");
-    // Return the subscription
-    Ok(Json(SubscriptionResponse {
-        plan_id: supabase_plan.id,
-        current_period_end: subscription.current_period_end,
-    }))
 }
 
 async fn links_handler(
@@ -1079,146 +786,6 @@ async fn get_user_handler(
         })?;
 
     Ok(Json(user))
-}
-
-/// Handles the cancellation of a user's subscription.
-///
-/// This function performs the following steps:
-/// 1. Validates the user email and user ID inputs
-/// 2. Verifies the user exists in Supabase
-/// 3. Confirms the user has an active Stripe subscription
-/// 4. Cancels the subscription in Stripe
-///
-/// # Returns
-///
-/// * `Result<StatusCode, StatusCode>` - Returns OK (200) if cancellation is successful
-///
-/// # Errors
-///
-/// This function returns an appropriate `StatusCode` in case of errors:
-/// * `StatusCode::BAD_REQUEST` (400) - If email or user ID is empty
-/// * `StatusCode::NOT_FOUND` (404) - If user doesn't exist in Supabase
-/// * `StatusCode::UNAUTHORIZED` (401) - If user has no active subscription
-/// * `StatusCode::INTERNAL_SERVER_ERROR` (500) - For any other errors
-///
-/// # Example
-///
-/// ```rust
-/// let response = cancel_handler(Path(("user@example.com".to_string(), "user_id".to_string()))).await;
-/// match response {
-///     Ok(_) => println!("Subscription cancelled successfully"),
-///     Err(status) => println!("Error cancelling subscription: {:?}", status),
-/// }
-/// ```
-#[axum::debug_handler]
-async fn cancel_handler(
-    State(app_state): State<AppState>,
-    Extension(user_context): Extension<UserContext>,
-    payload: Json<FeedbackRequest>,
-) -> Result<StatusCode, StatusCode> {
-    let user_email = user_context.email.clone();
-    let user_id = user_context.user_id.clone();
-    println!("Cancelling email: {}", user_email);
-
-    sentry::configure_scope(|scope| {
-        scope.set_user(Some(sentry::User {
-            email: Some(user_email.clone()),
-            id: Some(user_id.clone()),
-            ..Default::default()
-        }));
-        scope.set_tag("http.method", "POST");
-    });
-
-    println!("Cancelling user id: {}", user_id);
-    println!("Feedback: {:?}", payload);
-    let feedback = payload.feedback_comment.clone();
-    let reasons = payload.reasons.clone();
-
-    // confirm the user email and user id are present and formatted well else throw a 400
-    if user_email.is_empty() || user_id.is_empty() {
-        println!("User email or user id is empty");
-        return Err(StatusCode::BAD_REQUEST);
-    }
-
-    // Use app_state's Supabase instance
-    let database = &app_state.database;
-
-    // first confirm if user exists, if not throw a 404
-    let _user = database
-        .get_user(&user_id)
-        .await
-        .map_err(|e| match e.to_string().as_str() {
-            "404" => StatusCode::NOT_FOUND,
-            _ => StatusCode::INTERNAL_SERVER_ERROR,
-        })?;
-
-    println!("Got user: {:?}", _user);
-
-    // then get the supabase subscription
-    let mut supa_sub = database
-        .get_user_subscription(&user_id)
-        .await
-        .map_err(|e| match e.to_string().as_str() {
-            "404" => StatusCode::NOT_FOUND,
-            _ => StatusCode::INTERNAL_SERVER_ERROR,
-        })?;
-
-    println!("Got supabase subscription: {:?}", supa_sub);
-
-    // then confirm the user's subscription is active, if not throw a 401
-    let customer = match StripeClient::get_customer(&user_email).await {
-        Some(customer) => customer,
-        None => return Err(StatusCode::UNAUTHORIZED),
-    };
-
-    println!("Got customer: {:?}", customer);
-
-    let subscription = match StripeClient::get_subscription(&customer).await {
-        Some(sub) => sub,
-        None => return Err(StatusCode::UNAUTHORIZED),
-    };
-
-    println!("Got subscription: {:?}", subscription);
-
-    if !subscription.status.eq(&stripe::SubscriptionStatus::Active) {
-        return Err(StatusCode::UNAUTHORIZED);
-    }
-
-    // let's try and cancel the subscription with Stripe
-    let sub = match StripeClient::cancel_subscription(user_email, feedback, reasons).await {
-        Some(sub) => sub,
-        None => {
-            println!("No subscription found");
-            return Err(StatusCode::INTERNAL_SERVER_ERROR);
-        }
-    };
-
-    println!("Cancelled subscription: {:?}", sub);
-
-    // If that worked, update the subscription records in supabase
-    supa_sub.status = "cancelled".to_string();
-    if let Err(e) = database.update_subscription(supa_sub).await {
-        println!("Error occurred updating the sub in supabase: {:?}", e);
-        return Err(StatusCode::INTERNAL_SERVER_ERROR);
-    }
-
-    // todo - test the subscription flow with this
-    let memberships = database.get_user_memberships(&user_id).await.map_err(|e| {
-        println!("Error getting memberships: {:?}", e);
-        StatusCode::INTERNAL_SERVER_ERROR
-    })?;
-
-    for membership in memberships {
-        if let Err(e) = database
-            .remove_member(&membership.user_id, &membership.entity_id)
-            .await
-        {
-            println!("Error removing membership: {:?}", e);
-            return Err(StatusCode::INTERNAL_SERVER_ERROR);
-        }
-    }
-
-    return Ok(StatusCode::OK);
 }
 
 async fn get_metadata(client: State<reqwest::Client>, url: &str) -> Result<Metadata, StatusCode> {
@@ -1616,114 +1183,6 @@ async fn get_settings(
     Ok(Json(settings))
 }
 
-async fn cancel_subscription_hook(
-    State(app_state): State<AppState>,
-    headers: HeaderMap,
-    Json(payload): Json<Event>,
-) -> Result<StatusCode, StatusCode> {
-    println!("Received cancel subscription webhook");
-
-    sentry::configure_scope(|scope| {
-        scope.set_tag("http.method", "POST");
-    });
-
-    let endpoint_secret =
-        env::var("STRIPE_ENDPOINT_SECRET").expect("STRIPE_ENDPOINT_SECRET must be set");
-    let verify_signature = env::var("STRIPE_VERIFY_WEBHOOK_SIGNATURE")
-        .expect("STRIPE_VERIFY_WEBHOOK_SIGNATURE must be set");
-
-    let signature = headers
-        .get("Stripe-Signature")
-        .ok_or_else(|| {
-            println!("Missing Stripe-Signature header");
-            StatusCode::BAD_REQUEST
-        })?
-        .to_str()
-        .map_err(|e| {
-            println!("Error parsing Stripe-Signature header: {:?}", e);
-            StatusCode::BAD_REQUEST
-        })?;
-
-    let payload_str = serde_json::to_string(&payload).map_err(|e| {
-        println!("Error serializing payload: {:?}", e);
-        StatusCode::INTERNAL_SERVER_ERROR
-    })?;
-
-    let event = if verify_signature == "true" {
-        stripe::Webhook::construct_event(&payload_str, signature, &endpoint_secret).map_err(
-            |e| {
-                println!("Error constructing Stripe event: {:?}", e);
-                StatusCode::BAD_REQUEST
-            },
-        )?
-    } else {
-        serde_json::from_str::<Event>(&payload_str).map_err(|e| {
-            println!("Error deserializing event: {:?}", e);
-            StatusCode::INTERNAL_SERVER_ERROR
-        })?
-    };
-
-    if event.type_ != EventType::CustomerSubscriptionDeleted {
-        println!("Unexpected event type: {:?}", event.type_);
-        return Err(StatusCode::BAD_REQUEST);
-    }
-
-    let event_data = serde_json::to_value(event.data.object).map_err(|e| {
-        println!("Error converting event data to value: {:?}", e);
-        StatusCode::INTERNAL_SERVER_ERROR
-    })?;
-
-    let subscription: Subscription = serde_json::from_value(event_data).map_err(|e| {
-        println!("Error deserializing subscription: {:?}", e);
-        StatusCode::INTERNAL_SERVER_ERROR
-    })?;
-
-    let customer_id = subscription.customer.id();
-
-    let user_email = StripeClient::get_customer_email(&customer_id)
-        .await
-        .map_err(|e| {
-            println!(
-                "Error retrieving customer email for ID: {:?}, error: {:?}",
-                customer_id, e
-            );
-            StatusCode::INTERNAL_SERVER_ERROR
-        })?;
-
-    let user_email = match user_email {
-        Some(email) => email,
-        None => {
-            println!("No email found for customer ID: {:?}", customer_id);
-            return Err(StatusCode::NOT_FOUND);
-        }
-    };
-
-    // Use app_state's Supabase instance
-    let database = &app_state.database;
-
-    let user = database.get_user_by_email(&user_email).await.map_err(|e| {
-        println!("Error retrieving user by email: {:?}", e);
-        StatusCode::NOT_FOUND
-    })?;
-
-    let mut supa_sub = database
-        .get_user_subscription(&user.id)
-        .await
-        .map_err(|e| {
-            println!("Error retrieving user subscription: {:?}", e);
-            StatusCode::NOT_FOUND
-        })?;
-
-    supa_sub.status = "cancelled".to_string();
-
-        database.update_subscription(supa_sub).await.map_err(|e| {
-        println!("Error updating subscription: {:?}", e);
-        StatusCode::INTERNAL_SERVER_ERROR
-    })?;
-
-    Ok(StatusCode::OK)
-}
-
 async fn get_user_data_handler(
     State(app_state): State<AppState>,
     Extension(user_context): Extension<UserContext>,
@@ -1744,7 +1203,6 @@ async fn get_user_data_handler(
         scope.set_tag("http.method", "GET");
     });
 
-    // Use app_state's Supabase instance
     let database = &app_state.database;
 
     // Get or create user
@@ -1763,7 +1221,7 @@ async fn get_user_data_handler(
                 email: user_email.clone(),
                 created_at: Utc::now(),
                 auth_token: None,
-                password_hash: String::new(), // Auto-created user - password not set
+                password_hash: String::new(),
             };
             database.create_user(new_user.clone()).await.map_err(|e| {
                 tracing::error!("Failed to create user: {:?}", e);
@@ -1772,8 +1230,8 @@ async fn get_user_data_handler(
             })?;
             new_user_created = true;
             let create_settings_result = create_user_default_settings(&app_state, &new_user).await;
-            if let Err(e) = create_settings_result {
-                if e == StatusCode::INTERNAL_SERVER_ERROR {
+            if let Err(e) = &create_settings_result {
+                if *e == StatusCode::INTERNAL_SERVER_ERROR {
                     tracing::error!(
                         "Failed to create user settings for user: {}",
                         new_user.email
@@ -1790,66 +1248,8 @@ async fn get_user_data_handler(
         }
     };
 
-    tracing::info!("Fetching subscription info for {}", user_email);
-    println!("Fetching subscription info for {}", user_email);
-
-    // Track if the subscription is active
-    let mut has_active_subscription = false;
-
-    // Get subscription info
-    let subscription = match StripeClient::get_customer(&user_email).await {
-        Some(customer) => match StripeClient::get_subscription(&customer).await {
-            Some(sub) => {
-                // Check if subscription is still valid based on status and current period end
-                let current_timestamp = chrono::Utc::now().timestamp();
-                has_active_subscription = sub.status.eq(&stripe::SubscriptionStatus::Active)
-                    && sub.current_period_end > current_timestamp;
-
-                if has_active_subscription {
-                    let item = sub.items.data.first().ok_or_else(|| {
-                        println!("Error: No subscription item found in subscription data");
-                        StatusCode::INTERNAL_SERVER_ERROR
-                    })?;
-                    let plan = item.plan.as_ref().ok_or_else(|| {
-                        println!("Error: No plan found in subscription item");
-                        StatusCode::INTERNAL_SERVER_ERROR
-                    })?;
-                    let product_id = plan
-                        .product
-                        .as_ref()
-                        .ok_or_else(|| {
-                            println!("Error: No product ID found in subscription plan");
-                            StatusCode::INTERNAL_SERVER_ERROR
-                        })?
-                        .id();
-
-                    let supabase_plan = database
-                        .get_plan_by_stripe_id(&product_id.to_string())
-                        .await
-                        .map_err(|e| {
-                            println!("Error fetching plan from Supabase: {:?}", e);
-                            StatusCode::INTERNAL_SERVER_ERROR
-                        })?;
-
-                    Some((
-                        SubscriptionResponse {
-                            plan_id: supabase_plan.id.clone(),
-                            current_period_end: sub.current_period_end,
-                        },
-                        supabase_plan,
-                    ))
-                } else {
-                    None
-                }
-            }
-            _ => None,
-        },
-        None => None,
-    };
-
     tracing::info!("Fetching user settings for {}", user_id);
     println!("Fetching user settings for {}", user_id);
-    // only fetch settings if this is an existing user, otherwise we already created the default settings for new users
     if !new_user_created {
         settings = match database.get_user_settings(&user_id).await {
             Ok(settings) => Some(settings),
@@ -1866,44 +1266,6 @@ async fn get_user_data_handler(
         };
     }
 
-    // If subscription is not active but we have settings, disable premium features
-    if !has_active_subscription && settings.is_some() {
-        let mut user_settings = settings.unwrap();
-        let mut settings_blob = user_settings.settings_blob.clone();
-
-        // Disable premium features in the settings
-        disable_premium_features(&mut settings_blob);
-
-        // Update the settings object
-        user_settings.settings_blob = settings_blob;
-
-        // Save changes to database if settings were modified
-        let mut updates = HashMap::new();
-        updates.insert(
-            "settings_blob".to_string(),
-            user_settings.settings_blob.clone(),
-        );
-
-        if let Err(e) = database.update_user_settings(&user_id, updates).await {
-            tracing::error!(
-                "Failed to update user settings after disabling premium features: {:?}",
-                e
-            );
-            println!(
-                "Failed to update user settings after disabling premium features: {:?}",
-                e
-            );
-        } else {
-            tracing::info!(
-                "Successfully disabled premium features for user with expired subscription"
-            );
-            println!("Successfully disabled premium features for user with expired subscription");
-        }
-
-        // Update the settings value for the response
-        settings = Some(user_settings);
-    }
-
     tracing::info!("Fetching links for user {}", user_id);
     println!("Fetching links for user {}", user_id);
     let links = database.get_links(&user_id, "user").await.map_err(|e| {
@@ -1912,24 +1274,15 @@ async fn get_user_data_handler(
         StatusCode::INTERNAL_SERVER_ERROR
     })?;
 
+    // Get the free plan (all users now get full access)
     let free_plan_id = std::env::var("FREE_PLAN_ID").expect("FREE_PLAN_ID must be set");
-    let free_plan = if subscription.is_none() {
-        Some(database.get_plan(&free_plan_id).await.map_err(|err| {
-            println!("Error fetching free plan: {:?}", err);
-            StatusCode::INTERNAL_SERVER_ERROR
-        })?)
-    } else {
-        None
-    };
+    let plan = database.get_plan(&free_plan_id).await.map_err(|err| {
+        println!("Error fetching plan: {:?}", err);
+        StatusCode::INTERNAL_SERVER_ERROR
+    })?;
 
     // Generate JWT token with user ID and plan info
-    let plan_name = subscription
-        .as_ref()
-        .map(|(_, plan)| plan.name.clone())
-        .or_else(|| free_plan.as_ref().map(|p| p.name.clone()))
-        .unwrap_or_else(|| "free".to_string());
-
-    let auth_token = user_jwt::generate_jwt(&user_id, &plan_name).map_err(|e| {
+    let auth_token = user_jwt::generate_jwt(&user_id, &plan.name).map_err(|e| {
         tracing::error!("Failed to generate JWT token: {:?}", e);
         println!("Failed to generate JWT token: {:?}", e);
         StatusCode::INTERNAL_SERVER_ERROR
@@ -1944,21 +1297,14 @@ async fn get_user_data_handler(
         user_email
     );
 
-    // Create response with user data and authorization token
+    // Create response with user data
     let mut response = UserDataResponse {
         user,
-        subscription: subscription.as_ref().map(|(sub, _)| sub.clone()).or(Some(
-            SubscriptionResponse {
-                plan_id: free_plan_id.clone(),
-                current_period_end: 0,
-            },
-        )),
-        plan: subscription.map(|(_, plan)| plan).or(free_plan),
+        plan: Some(plan),
         settings,
         links,
     };
 
-    // Add the auth_token to the response
     response.user.auth_token = Some(auth_token);
 
     Ok(Json(response))
