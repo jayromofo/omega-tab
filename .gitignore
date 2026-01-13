@@ -36,3 +36,4 @@ server/target/*
 client/.vitepress/cache/*
 client/.vitepress/dist/*
 client/.vitepress/node_modules/*
+.turbo
