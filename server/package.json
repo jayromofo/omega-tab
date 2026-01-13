@@ -1,0 +1,9 @@
+{
+  "name": "rust-server",
+  "private": true,
+  "scripts": {
+    "build": "cargo build --release",
+    "dev": "cargo run"
+  }
+}
+
