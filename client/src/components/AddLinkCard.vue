@@ -61,6 +61,44 @@
           creatable
           create-label="Create '{input}'"
         />
+
+        <div class="add-link-form__icon-section">
+          <label class="add-link-form__label">Custom Icon (optional)</label>
+          <div class="add-link-form__icon-row">
+            <div class="add-link-form__icon-preview">
+              <img
+                v-if="formData.icon"
+                :src="formData.icon"
+                alt="Icon preview"
+                class="add-link-form__icon-img"
+              />
+              <TpIcon v-else name="link" size="lg" />
+            </div>
+            <div class="add-link-form__icon-inputs">
+              <TpInput
+                v-model="formData.icon"
+                label="Icon URL"
+                placeholder="https://example.com/icon.png"
+              />
+              <div class="add-link-form__upload">
+                <input
+                  type="file"
+                  accept="image/*"
+                  @change="handleFileUpload"
+                  ref="fileInputRef"
+                  class="add-link-form__file-input"
+                />
+                <TpButton variant="ghost" size="sm" @click="triggerFileInput">
+                  <TpIcon name="plus" size="sm" />
+                  Upload Image
+                </TpButton>
+                <TpButton v-if="formData.icon" variant="ghost" size="sm" @click="clearIcon">
+                  Clear
+                </TpButton>
+              </div>
+            </div>
+          </div>
+        </div>
       </form>
 
       <template #actions>
@@ -120,8 +158,11 @@ const formData = ref({
   url: '',
   title: '',
   description: '',
-  columnType: props.columnType
+  columnType: props.columnType,
+  icon: ''
 })
+
+const fileInputRef = ref<HTMLInputElement | null>(null)
 
 const columnTypes = computed(() => linksStore.uniqueColumnTypes)
 
@@ -150,10 +191,40 @@ const resetForm = () => {
     url: '',
     title: '',
     description: '',
-    columnType: props.columnType
+    columnType: props.columnType,
+    icon: ''
   }
   urlError.value = ''
   validLink.value = true
+}
+
+const triggerFileInput = () => {
+  fileInputRef.value?.click()
+}
+
+const handleFileUpload = (event: Event) => {
+  const target = event.target as HTMLInputElement
+  const file = target.files?.[0]
+  if (!file) return
+
+  // Check file size (max 500KB)
+  if (file.size > 500 * 1024) {
+    alert('Image size must be less than 500KB')
+    return
+  }
+
+  const reader = new FileReader()
+  reader.onload = (e) => {
+    formData.value.icon = e.target?.result as string
+  }
+  reader.readAsDataURL(file)
+}
+
+const clearIcon = () => {
+  formData.value.icon = ''
+  if (fileInputRef.value) {
+    fileInputRef.value.value = ''
+  }
 }
 
 const validateForm = (): boolean => {
@@ -187,6 +258,7 @@ const handleSubmit = async () => {
       title: formData.value.title,
       description: formData.value.description,
       url: formData.value.url,
+      icon: formData.value.icon || null,
       next_order_index: linksStore.links.length + 1,
       owner_id: userStore.userId,
       owner_type: 'user',
@@ -283,5 +355,59 @@ watch(isModalOpen, (newVal) => {
   align-items: center;
   gap: var(--tp-space-2);
   margin-left: auto;
+}
+
+.add-link-form__icon-section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--tp-space-2);
+}
+
+.add-link-form__label {
+  font-size: var(--tp-text-sm);
+  font-weight: var(--tp-font-medium);
+  color: var(--tp-text-primary);
+}
+
+.add-link-form__icon-row {
+  display: flex;
+  gap: var(--tp-space-4);
+  align-items: flex-start;
+}
+
+.add-link-form__icon-preview {
+  width: 48px;
+  height: 48px;
+  border-radius: var(--tp-radius-sm);
+  border: var(--tp-border-width) solid var(--tp-border);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  background: var(--tp-bg-secondary);
+  overflow: hidden;
+}
+
+.add-link-form__icon-img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.add-link-form__icon-inputs {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: var(--tp-space-2);
+}
+
+.add-link-form__upload {
+  display: flex;
+  gap: var(--tp-space-2);
+  align-items: center;
+}
+
+.add-link-form__file-input {
+  display: none;
 }
 </style>
